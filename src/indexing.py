@@ -17,8 +17,11 @@ class Indexing():
         docs, scores = self.retriever.retrieve(query_tokens, k=2)
         print(f"Best result (score: {scores[0][0]:.2f})")
         result = docs[0][0]
-        chunk = self.find_chunk(result)
-        print(chunk)
+        self.chunk = self.find_chunk(result)
+
+    def get_chunk(self):
+        return self.chunk
+
 
     def find_chunk(self, content):
         for chunk in self.chunks:

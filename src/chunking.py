@@ -3,16 +3,23 @@ import json
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 
+
 class Chunking():
-    def __init__(self, folder_raw: Path, max_chunk_size: int, chunks_file: Path):
-        self.allowed_text = [".md", ".txt", ".toml"]
-        self.allowed_code = [".py"]
+    def __init__(self, folder_raw: Path, max_chunk_size: int, chunks_file: Path, dataset_type):
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
-        self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=max_chunk_size, chunk_overlap=0)
-        self.find_allowed_files_paths(self.allowed_text)
-        self.chunking_files_paths()
+        if dataset_type.value == "code":
+            self.allowed_ext = [".py"]
+            self.language = Language.PYTHON
+        else:
+            self.allowed_ext = [".md", ".txt", ".toml"]
+            self.language = Language.MARKDOWN
 
+        self.text_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=self.language, chunk_size=max_chunk_size, chunk_overlap=0
+        )
+        self.find_allowed_files_paths(self.allowed_ext)
+        self.chunking_files_paths()
 
     def find_allowed_files_paths(self, allowed):
         self.files_paths = []
@@ -33,7 +40,7 @@ class Chunking():
         texts = self.text_splitter.split_text(data)
         index = 0
         for text in texts:
-            last_index = len(text)
+            last_index = index + len(text)
             chunks.append({
                 "file_path": file_path.name,
                 "content": text,
