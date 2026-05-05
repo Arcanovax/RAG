@@ -12,7 +12,7 @@ def main():
     Indexing(processed, file, question)
 
 
-class  Indexing():
+class Indexing():
     def __init__(self, processed: str, file: str, question: str):
         self.folder_processed = processed
         self.json_chunks = file
@@ -25,7 +25,15 @@ class  Indexing():
 
         query_tokens = bm25s.tokenize(question)
         docs, scores = self.retriever.retrieve(query_tokens, k=2)
-        print(f"Best result (score: {scores[0, 0]:.2f}): {docs[0, 0]}")
+        print(f"Best result (score: {scores[0][0]:.2f})")
+        result = docs[0][0]
+        chunk = self.find_chunk(result)
+        print(chunk)
+
+    def find_chunk(self, content):
+        for chunk in self.chunks:
+            if content == chunk.get("content"):
+                return chunk
 
     def get_chunks(self):
         chunks_file = f"{self.folder_processed}/{self.json_chunks}"
@@ -56,25 +64,25 @@ class Chunking():
             self.files_paths += (list(folder.rglob(f"*{ext}")))
 
     def save_chunks(self, chunks: list):
-        data = []
-        for i, chunk in enumerate(chunks):
-            data.append({
-                    "id": i,
-                    "content": chunk
-                })
-
         chunks_file = f"{self.folder_processed}/{self.json_chunks}"
         try:
             with (open(chunks_file, "w")as file):
-                file.write(json.dumps(data, indent=2))
+                file.write(json.dumps(chunks, indent=2))
         except Exception:
             raise (ValueError(f"Cannot write in {self.json_chunks}"))
 
-    def create_chunks(self, data) -> list:
+    def create_chunks(self, file_path) -> dict:
+        data = file_path.read()
         chunk_size = self.max_chunk_size
         total_size = len(data)
-        chunks = [data[i:i + chunk_size]
-                  for i in range(0, total_size, chunk_size)]
+        chunks = []
+        for i in range(0, total_size, chunk_size):
+            chunks.append({
+                    "file_path": file_path.name,
+                    "content": data[i:i + chunk_size],
+                    "first_character_index": i,
+                    "last_character_index": i + chunk_size
+                })
         return chunks
 
     def chunking_files_paths(self):
@@ -82,9 +90,8 @@ class Chunking():
         chunks = []
         for file_path in self.files_paths:
             with (open(file_path, "r") as file):
-                chunks += self.create_chunks(file.read())
+                chunks += self.create_chunks(file)
         self.save_chunks(chunks)
-
 
 if __name__ == "__main__":
     main()
