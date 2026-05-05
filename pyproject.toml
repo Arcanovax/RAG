@@ -1,0 +1,13 @@
+[project]
+name = "RAG"
+version = "1.0.0"
+description = "RAG project from 42 cursus"
+requires-python = ">=3.10"
+dependencies = [
+    "bm25s>=0.3.8",
+    "fire>=0.7.1",
+    "flake8>=7.3.0",
+    "mypy>=1.20.1",
+    "tqdm>=4.67.3",
+]
+
