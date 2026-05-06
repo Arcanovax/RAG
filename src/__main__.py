@@ -17,12 +17,14 @@ def main():
     Chunking(raw, max_chunk_size, chunks_file, dataset_type)
 
     questions = get_questions(Path("data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json"))
+    all = []
     for question in questions:
         print(question.get("question"))
         indexing = Indexing(chunks_file, question.get("question"))
         chunk = indexing.get_chunk()
         answer = {
             "question_id": question.get("question_id"),
+            "question_str": question.get("question"),
             "retrieved_sources": [
                 {
                     "file_path": chunk.get("file_path"),
@@ -30,14 +32,19 @@ def main():
                     "last_character_index": chunk.get("last_character_index")
                 }]
         }
-        print(answer)
+        all.append(answer)
+    save_all(all)
 
-def save_answer(self, answer):
+def save_all(all):
     try:
-        with (open("result.json", "a")as file):
-            file.write(json.dumps(answer, indent=2))
+        data = {
+            "search_results": all,
+            "k": 10
+        }
+        with (open("result.json", "w")as file):
+            file.write(json.dumps(data, indent=2))
     except Exception:
-        raise (ValueError(f"Cannot write in {self.chunks_file}"))
+        raise (ValueError("Cannot write"))
 
 
 def get_questions(file):

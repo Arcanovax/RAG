@@ -14,7 +14,7 @@ class Indexing():
         self.retriever.index(corpus_tokens)
 
         query_tokens = bm25s.tokenize(question)
-        docs, scores = self.retriever.retrieve(query_tokens, k=2)
+        docs, scores = self.retriever.retrieve(query_tokens, k=5)
         print(f"Best result (score: {scores[0][0]:.2f})")
         result = docs[0][0]
         self.chunk = self.find_chunk(result)
