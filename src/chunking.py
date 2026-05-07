@@ -11,7 +11,7 @@ class Chunking():
     def __init__(self, folder_raw: Path, max_chunk_size: int, chunks_file: Path, dataset_type):
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
-        overlap = 0.1
+        overlap = 0.10
         if dataset_type.value == "code":
             self.allowed_ext = [".py"]
         else:
@@ -80,8 +80,8 @@ class Chunking():
     def save_for_retriever(self):
         corpus = []
         for chunk in self.all_chunks:
-            corpus.append(f"{chunk['file_path']}\n{chunk['content']}")
-
+            # corpus.append(f"{chunk['content']}")
+            corpus.append(f"{chunk['file_path']}   {chunk['content']}")
         retriever = bm25s.BM25()
         corpus_tokens = bm25s.tokenize(corpus)
         retriever.index(corpus_tokens)

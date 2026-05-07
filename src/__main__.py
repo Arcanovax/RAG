@@ -13,7 +13,7 @@ def main():
     raw = Path("data/raw")
     chunks_file = Path("data/processed/chunks.json")
     max_chunk_size = 2000
-    k = 5
+    k = 10
     dataset_type = dataset.DOCS
     Chunking(raw, max_chunk_size, chunks_file, dataset_type)
 
@@ -37,6 +37,7 @@ def main():
         }
         all.append(answer)
     save_all(all, k)
+
 
 def save_all(all, k):
     try:
