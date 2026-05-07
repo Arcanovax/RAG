@@ -1,14 +1,12 @@
 from pathlib import Path
 import json
-import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 import bm25s
-import re
-
 
 
 class Chunking():
-    def __init__(self, folder_raw: Path, max_chunk_size: int, chunks_file: Path, dataset_type):
+    def __init__(self, folder_raw: Path, max_chunk_size: int,
+                 chunks_file: Path, dataset_type):
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
         overlap = 0.10
@@ -34,10 +32,11 @@ class Chunking():
             add_start_index=True
         )
 
-        self.all_chunks = []
-        self.chunking_files_paths()
-        self.save_all_chunks()
-        self.save_for_retriever()
+        all_chunks = []
+        for file_path in self._find_allowed_files_paths(self.allowed_ext):
+            all_chunks += self.create_chunks_from_file(file_path)
+        self.save_all_chunks(all_chunks)
+        self.save_for_retriever(all_chunks)
 
     def _find_allowed_files_paths(self, allowed):
         files_paths = []
@@ -45,10 +44,10 @@ class Chunking():
             files_paths += (list(self.folder_raw.rglob(f"*{ext}")))
         return files_paths
 
-    def save_all_chunks(self: list):
+    def save_all_chunks(self, all_chunks: list):
         try:
             with (open(self.chunks_file, "w")as file):
-                file.write(json.dumps(self.all_chunks, indent=2))
+                file.write(json.dumps(all_chunks, indent=2))
         except Exception:
             raise (ValueError(f"Cannot write in {self.chunks_file}"))
 
@@ -73,17 +72,11 @@ class Chunking():
             })
         return chunks
 
-    def chunking_files_paths(self):
-        for file_path in self._find_allowed_files_paths(self.allowed_ext):
-            self.all_chunks += self.create_chunks_from_file(file_path)
-
-    def save_for_retriever(self):
+    def save_for_retriever(self, all_chunks):
         corpus = []
-        for chunk in self.all_chunks:
-            # corpus.append(f"{chunk['content']}")
+        for chunk in all_chunks:
             corpus.append(f"{chunk['file_path']}   {chunk['content']}")
         retriever = bm25s.BM25()
         corpus_tokens = bm25s.tokenize(corpus)
         retriever.index(corpus_tokens)
         retriever.save("data/processed/bm25_index")
-
