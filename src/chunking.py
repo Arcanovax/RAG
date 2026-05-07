@@ -54,12 +54,12 @@ class Chunking():
 
     def create_chunks_from_file(self, file_path) -> dict:
         data = file_path.read_text()
-        # if file_path.suffix == ".md":
-        #     texts = self.markdown_splitter.create_documents([data])
-        # elif file_path.suffix == ".py":
-        #     texts = self.code_splitter.create_documents([data])
-        # else:
-        texts = self.text_splitter.create_documents([data])
+        if file_path.suffix == ".md":
+            texts = self.markdown_splitter.create_documents([data])
+        elif file_path.suffix == ".py":
+            texts = self.code_splitter.create_documents([data])
+        else:
+            texts = self.text_splitter.create_documents([data])
         chunks = []
         for text in texts:
             chunk_text = text.page_content
@@ -78,10 +78,10 @@ class Chunking():
             self.all_chunks += self.create_chunks_from_file(file_path)
 
     def save_for_retriever(self):
-        corpus = [
-            f"File:{chunk["file_path"]}  {(chunk["content"])}"
-            for chunk in self.all_chunks
-        ]
+        corpus = []
+        for chunk in self.all_chunks:
+            corpus.append(f"{chunk['file_path']}\n{chunk['content']}")
+
         retriever = bm25s.BM25()
         corpus_tokens = bm25s.tokenize(corpus)
         retriever.index(corpus_tokens)

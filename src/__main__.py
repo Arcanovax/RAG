@@ -13,6 +13,7 @@ def main():
     raw = Path("data/raw")
     chunks_file = Path("data/processed/chunks.json")
     max_chunk_size = 2000
+    k = 5
     dataset_type = dataset.DOCS
     Chunking(raw, max_chunk_size, chunks_file, dataset_type)
 
@@ -20,26 +21,28 @@ def main():
     all = []
     for question in questions:
         print(question.get("question"))
-        indexing = Indexing(chunks_file, question.get("question"))
-        chunk = indexing.get_chunk()
-        answer = {
-            "question_id": question.get("question_id"),
-            "question_str": question.get("question"),
-            "retrieved_sources": [
-                {
+        indexing = Indexing(chunks_file, question.get("question"), k)
+        selected_chunks = indexing.get_selected_chunks()
+        sources = []
+        for chunk in selected_chunks:
+            sources.append({
                     "file_path": chunk.get("file_path"),
                     "first_character_index": chunk.get("first_character_index"),
                     "last_character_index": chunk.get("last_character_index")
-                }]
+                })
+        answer = {
+            "question_id": question.get("question_id"),
+            "question_str": question.get("question"),
+            "retrieved_sources": sources
         }
         all.append(answer)
-    save_all(all)
+    save_all(all, k)
 
-def save_all(all):
+def save_all(all, k):
     try:
         data = {
             "search_results": all,
-            "k": 10
+            "k": k
         }
         with (open("result.json", "w")as file):
             file.write(json.dumps(data, indent=2))

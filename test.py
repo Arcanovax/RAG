@@ -1425,7 +1425,7 @@ for s in search_results:
     r_paths = [src["file_path"] for src in r["sources"]]
 
     match = s_paths == r_paths
-    status = "✅ MATCH" if match else "❌ MISMATCH"
+    status = "✅ MATCH" if match else f"❌ {s_paths} {r_paths}"
     print(f"{status}")
     if match:
         valid += 1
