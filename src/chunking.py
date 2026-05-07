@@ -1,7 +1,6 @@
 from pathlib import Path
 import json
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
-import bm25s
 
 
 class Chunking():
@@ -36,7 +35,10 @@ class Chunking():
         for file_path in self._find_allowed_files_paths(self.allowed_ext):
             all_chunks += self.create_chunks_from_file(file_path)
         self.save_all_chunks(all_chunks)
-        self.save_for_retriever(all_chunks)
+        self.all_chunks = all_chunks
+
+    def get_all_chunks(self):
+        return self.all_chunks
 
     def _find_allowed_files_paths(self, allowed):
         files_paths = []
@@ -71,12 +73,3 @@ class Chunking():
                 "last_character_index": last_index
             })
         return chunks
-
-    def save_for_retriever(self, all_chunks):
-        corpus = []
-        for chunk in all_chunks:
-            corpus.append(f"{chunk['file_path']}   {chunk['content']}")
-        retriever = bm25s.BM25()
-        corpus_tokens = bm25s.tokenize(corpus)
-        retriever.index(corpus_tokens)
-        retriever.save("data/processed/bm25_index")

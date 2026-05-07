@@ -1,4 +1,5 @@
 from .chunking import Chunking
+from .retrieving import Retrieving
 from .indexing import Indexing
 from pathlib import Path
 from enum import Enum
@@ -15,14 +16,21 @@ def main():
     max_chunk_size = 2000
     k = 10
     dataset_type = dataset.DOCS
-    Chunking(raw, max_chunk_size, chunks_file, dataset_type)
+    bm25s_path = Path("data/processed/bm25_index")
+
+    all_chunks = Chunking(
+        raw,
+        max_chunk_size,
+        chunks_file,
+        dataset_type,
+    ).get_all_chunks()
+    Indexing(bm25s_path, all_chunks)
 
     questions = get_questions(Path("data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json"))
     all = []
     for question in questions:
         print(question.get("question"))
-        indexing = Indexing(chunks_file, question.get("question"), k)
-        selected_chunks = indexing.get_selected_chunks()
+        selected_chunks = Retrieving(bm25s_path, chunks_file, question.get("question"), k).get_selected_chunks()
         sources = []
         for chunk in selected_chunks:
             sources.append({
@@ -36,10 +44,10 @@ def main():
             "retrieved_sources": sources
         }
         all.append(answer)
-    save_all(all, k)
+    save_all_answer(all, k)
 
 
-def save_all(all, k):
+def save_all_answer(all, k):
     try:
         data = {
             "search_results": all,
