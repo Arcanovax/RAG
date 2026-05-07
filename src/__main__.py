@@ -54,7 +54,7 @@ def get_questions(file):
             data = json.loads(data)
             return data.get("rag_questions")
     except Exception:
-        raise (ValueError(f"Cannot write in {self.json_chunks}"))
+        raise (ValueError(f"Cannot write in {file}"))
 
 
 if __name__ == "__main__":
