@@ -1,6 +1,9 @@
 import bm25s
 import json
 from pathlib import Path
+import re
+
+
 
 
 class Indexing():

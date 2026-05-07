@@ -11,22 +11,28 @@ class Chunking():
     def __init__(self, folder_raw: Path, max_chunk_size: int, chunks_file: Path, dataset_type):
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
-        overlap = 0.15
+        overlap = 0.1
         if dataset_type.value == "code":
             self.allowed_ext = [".py"]
-            self.text_splitter = RecursiveCharacterTextSplitter.from_language(
-                language=Language.PYTHON,
-                chunk_size=max_chunk_size,
-                chunk_overlap=int(max_chunk_size * overlap),
-                add_start_index=True
-            )
         else:
             self.allowed_ext = [".md", ".txt"]
-            self.text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=max_chunk_size,
-                chunk_overlap=int(max_chunk_size * overlap),
-                add_start_index=True
-            )
+        self.code_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=Language.PYTHON,
+            chunk_size=max_chunk_size,
+            chunk_overlap=int(max_chunk_size * overlap),
+            add_start_index=True
+        )
+        self.markdown_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=Language.MARKDOWN,
+            chunk_size=max_chunk_size,
+            chunk_overlap=int(max_chunk_size * overlap),
+            add_start_index=True
+        )
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=max_chunk_size,
+            chunk_overlap=int(max_chunk_size * overlap),
+            add_start_index=True
+        )
 
         self.all_chunks = []
         self.chunking_files_paths()
@@ -48,11 +54,16 @@ class Chunking():
 
     def create_chunks_from_file(self, file_path) -> dict:
         data = file_path.read_text()
+        # if file_path.suffix == ".md":
+        #     texts = self.markdown_splitter.create_documents([data])
+        # elif file_path.suffix == ".py":
+        #     texts = self.code_splitter.create_documents([data])
+        # else:
         texts = self.text_splitter.create_documents([data])
         chunks = []
         for text in texts:
-            index = text.metadata.get("start_index")
             chunk_text = text.page_content
+            index = text.metadata.get("start_index")
             last_index = index + len(chunk_text)
             chunks.append({
                 "file_path": str(file_path),
@@ -68,14 +79,11 @@ class Chunking():
 
     def save_for_retriever(self):
         corpus = [
-            f"{chunk["file_path"][20:]}  {chunk["content"]}"
+            f"File:{chunk["file_path"]}  {(chunk["content"])}"
             for chunk in self.all_chunks
         ]
-        corpus_tokens = bm25s.tokenize(corpus)
         retriever = bm25s.BM25()
+        corpus_tokens = bm25s.tokenize(corpus)
         retriever.index(corpus_tokens)
         retriever.save("data/processed/bm25_index")
-
-
-
 
