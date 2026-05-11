@@ -24,4 +24,3 @@ class Retrieving():
                 self.chunks = json.loads(data)
         except Exception:
             raise (ValueError(f"Cannot read {self.chunks_file}"))
-

@@ -34,8 +34,9 @@ class Chunking():
         all_chunks = []
         for file_path in self._find_allowed_files_paths(self.allowed_ext):
             all_chunks += self.create_chunks_from_file(file_path)
-        self.save_all_chunks(all_chunks)
         self.all_chunks = all_chunks
+        self.save_all_chunks(all_chunks)
+
 
     def get_all_chunks(self):
         return self.all_chunks
@@ -47,6 +48,7 @@ class Chunking():
         return files_paths
 
     def save_all_chunks(self, all_chunks: list):
+        self.chunks_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             with (open(self.chunks_file, "w")as file):
                 file.write(json.dumps(all_chunks, indent=2))
