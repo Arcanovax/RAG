@@ -5,6 +5,7 @@ description = "RAG project from 42 cursus"
 requires-python = ">=3.10"
 dependencies = [
     "bm25s>=0.3.8",
+    "dspy>=3.2.1",
     "fire>=0.7.1",
     "flake8>=7.3.0",
     "langchain-text-splitters>=1.1.2",

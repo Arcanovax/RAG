@@ -3,6 +3,7 @@ from .retrieving import Retrieving
 from .indexing import Indexing
 from pathlib import Path
 from enum import Enum
+from .utils.model import StudentSearchResults, MinimalSearchResults, MinimalSource
 import json
 
 class dataset(Enum):
@@ -12,10 +13,11 @@ class dataset(Enum):
 
 def main():
     raw = Path("data/raw")
-    chunks_file = Path("data/processed/chunks.json")
+
     max_chunk_size = 2000
     k = 10
     dataset_type = dataset.DOCS
+    chunks_file = Path("data/processed/chunks.json")
     bm25s_path = Path("data/processed/bm25_index")
 
     all_chunks = Chunking(
@@ -71,5 +73,3 @@ def get_questions(file):
 
 if __name__ == "__main__":
     main()
-
-

@@ -1,5 +1,6 @@
 import bm25s
 
+
 class Indexing:
     def __init__(self, save_path, all_chunks):
         self.save_path = save_path
