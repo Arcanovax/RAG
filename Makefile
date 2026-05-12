@@ -3,11 +3,12 @@ UV_PY = uv run python3
 MYPY_FLAGS = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 VENV = .venv
 
+
 install:
 	uv sync
 
 run:
-	$(UV_PY) -m src
+	$(UV_PY) -m src $(ARGS)
 
 debug:
 	$(UV_PY) -m src --debug
