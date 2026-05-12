@@ -10,16 +10,13 @@ from .utils.model import (StudentSearchResults,
 import json
 import fire
 
-class dataset(Enum):
-    CODE = "code"
-    DOCS = "docs"
 
 
 class Core:
     def __init__(
         self,
         k=10,
-        dataset_type=dataset.DOCS,
+        dataset_type="docs",
         process_path=Path("data/processed"),
         output_path=Path("data/output"),
         chunks_file="chunks.json",
@@ -38,7 +35,8 @@ class Core:
         self.chunks_path = process_path / chunks_file
         self.bm25s_path = process_path / bm25s_folder
 
-    def index(self, max_chunk_size, dataset=None, dataset_type=dataset.DOCS):
+    def index(self, max_chunk_size=2000, dataset=None, dataset_type="docs"):
+        print(dataset_type)
         if dataset is None:
             dataset_path = self.dataset
         else:
@@ -60,17 +58,12 @@ class Core:
         print("search")
         pass
 
-    def search_dataset(self, dataset_path, k=5, save_directory=None):
-        self.index()
-        if save_directory is None:
-            save_path = self.search_results
-        else:
-            save_path = Path(save_directory) / "dataset_docs_public.json"
+    def search_dataset(self, dataset_path, k, save_directory=None):
         questions = get_questions(Path(dataset_path))
         all = []
         for question in questions:
             print(question.get("question"))
-            selected_chunks = Retrieving(self.bm25s_path, self.chunks_file, question.get("question"), k).get_selected_chunks()
+            selected_chunks = Retrieving(self.bm25s_path, self.chunks_path, question.get("question"), k).get_selected_chunks()
             sources = []
             for chunk in selected_chunks:
                 sources.append(MinimalSource(**chunk))
@@ -80,7 +73,7 @@ class Core:
                 "retrieved_sources": sources
             }
             all.append(MinimalSearchResults(**answer))
-        save_all_answer(save_path, all, k)
+        self.save_all_answer(save_directory, all, k)
         save_for_moulinette(all, k)
 
 
@@ -102,6 +95,20 @@ class Core:
 
     def evaluate(self):
         pass
+
+    def save_all_answer(self, save_directory, all, k):
+        if save_directory is None:
+            save_path = self.search_results
+        else:
+            save_path = Path(save_directory) / "dataset_docs_public.json"
+        result = StudentSearchResults(
+            search_results=all,
+            k=k
+        )
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(save_path, "w") as file:
+            file.write(result.model_dump_json(indent=2))
+
 
 
 def main():
@@ -156,22 +163,16 @@ def save_for_moulinette(results, k):
         raise (ValueError("Cannot write"))
 
 
-def save_all_answer(save_path, all, k):
-    result = StudentSearchResults(
-        search_results=all,
-        k=k
-    )
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(save_path, "w") as file:
-        file.write(result.model_dump_json(indent=2))
 
 
 def get_questions(file):
-
-    with (open(file, "r")as file):
-        data = file.read()
-        data = json.loads(data)
-        return data.get("rag_questions")
+    try:
+        with (open(file, "r")as file):
+            data = file.read()
+            data = json.loads(data)
+            return data.get("rag_questions")
+    except Exception:
+        raise (ValueError("questions not found"))
 
 
 if __name__ == "__main__":

@@ -23,4 +23,4 @@ class Retrieving():
                 data = file.read()
                 self.chunks = json.loads(data)
         except Exception:
-            raise (ValueError(f"Cannot read {self.chunks_file}"))
+            raise (ValueError("The dataset is not indexed, use index before"))

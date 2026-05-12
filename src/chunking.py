@@ -9,10 +9,12 @@ class Chunking():
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
         overlap = 0.10
-        if dataset_type.value == "code":
+        if dataset_type == "code":
             self.allowed_ext = [".py"]
-        else:
+        elif dataset_type == "docs":
             self.allowed_ext = [".md", ".txt"]
+        else:
+            raise ValueError("Unknow type of document")
         self.code_splitter = RecursiveCharacterTextSplitter.from_language(
             language=Language.PYTHON,
             chunk_size=max_chunk_size,
