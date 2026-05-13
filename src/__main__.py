@@ -16,7 +16,6 @@ class Core:
     def __init__(
         self,
         k=10,
-        dataset_type="docs",
         process_path=Path("data/processed"),
         output_path=Path("data/output"),
         chunks_file="chunks.json",
@@ -27,7 +26,6 @@ class Core:
     ):
         self.k = k
         self.dataset = Path("data/raw")
-        self.dataset_type = dataset_type
         self.search_results = search_results
         self.questions_path = questions_path
         self.answered_path = answered_path
@@ -35,12 +33,15 @@ class Core:
         self.chunks_path = process_path / chunks_file
         self.bm25s_path = process_path / bm25s_folder
 
-    def index(self, max_chunk_size=2000, dataset=None, dataset_type="docs"):
-        print(dataset_type)
+
+    def index(self, max_chunk_size=2000, dataset_type="docs", dataset=None):
+        if dataset_type != "docs" and dataset_type != "code":
+            raise (ValueError("The dataset is not valid"))
         if dataset is None:
             dataset_path = self.dataset
         else:
             dataset_path = Path(dataset)
+        print(f"Ingesting {dataset_path} in {dataset_type} mode")
 
         self.all_chunks = Chunking(
             dataset_path,
