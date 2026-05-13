@@ -9,13 +9,13 @@ from .utils.model import (StudentSearchResults,
                           MinimalSource)
 import json
 import fire
+import uuid
 
 
 
 class Core:
     def __init__(
         self,
-        k=10,
         process_path=Path("data/processed"),
         output_path=Path("data/output"),
         chunks_file="chunks.json",
@@ -24,7 +24,6 @@ class Core:
         questions_path=Path("data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json"),
         answered_path=Path("data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json")
     ):
-        self.k = k
         self.dataset = Path("data/raw")
         self.search_results = search_results
         self.questions_path = questions_path
@@ -74,22 +73,25 @@ class Core:
                 "retrieved_sources": sources
             }
             all.append(MinimalSearchResults(**answer))
-        self.save_all_answer(save_directory, all, k)
+        self._save_all_answer(save_directory, all, k)
         save_for_moulinette(all, k)
 
-
-
-
-    def search(self, query, k=5):
+    def search(self, query, k, save_directory=None):
         print(query)
+        result = []
         selected_chunks = Retrieving(self.bm25s_path,
-                                     self.chunks_file,
+                                     self.chunks_path,
                                      query, k).get_selected_chunks()
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
-        print(sources)
-
+        answer = {
+                "question_id": str(uuid.uuid4()),
+                "question": query,
+                "retrieved_sources": sources
+            }
+        result.append(MinimalSearchResults(**answer))
+        self._save_all_answer(save_directory, result, k)
 
     def answer_dataset(self):
         pass
@@ -97,7 +99,7 @@ class Core:
     def evaluate(self):
         pass
 
-    def save_all_answer(self, save_directory, all, k):
+    def _save_all_answer(self, save_directory, all, k):
         if save_directory is None:
             save_path = self.search_results
         else:
