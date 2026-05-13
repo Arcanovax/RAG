@@ -97,6 +97,8 @@ class Core:
     def evaluate(self, answered_path, save_directory=None):
         if save_directory is None:
             save_path = self.search_results
+            if not save_path.parent.exists():
+                raise ValueError(f"Search the data before evaluate, use search_data")
         else:
             save_path = Path(save_directory) / "dataset_docs_public.json"
         Evaluating(save_path, answered_path)
