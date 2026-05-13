@@ -5,6 +5,9 @@ class Evaluating:
     def __init__(self, path_result, path_answered_questions):
         self.results: StudentSearchResults = self.get_result(path_result)
         self.answered_questions: RagDataset = self.get_answered_questions(path_answered_questions)
+        print(f"Total number of questions: {len(self.answered_questions.rag_questions)}")
+        print(f"Total number of questions with sources: {sum(1 for question in self.answered_questions.rag_questions if len(question.sources) > 0)}")
+        print(f"Total number of questions with students sources: {sum(1 for question in self.results.search_results if len(question.retrieved_sources) > 0)}")
         scores = self.evaluate()
         for recal, score in scores.items():
             print(f"{recal}: {score} ({score*100}%)")
@@ -15,7 +18,7 @@ class Evaluating:
                 data = file.read()
                 return StudentSearchResults(**json.loads(data))
         except Exception:
-            raise (ValueError(f"Cannot read {self.chunks_file}"))
+            raise (ValueError(f"Cannot read {path_result}"))
 
     def get_answered_questions(self, path_answered_questions):
         try:
@@ -23,15 +26,15 @@ class Evaluating:
                 data = file.read()
                 return RagDataset(**json.loads(data))
         except Exception:
-            raise (ValueError(f"Cannot read {self.chunks_file}"))
+            raise (ValueError(f"Cannot read {path_answered_questions}"))
 
     def evaluate(self):
-        print(f"Total number of questions: {len(self.answered_questions.rag_questions)}")
-        print(f"Total number of questions with sources: {sum(1 for question in self.answered_questions.rag_questions if len(question.sources) > 0)}")
-        print(f"Total number of questions with students sources: {sum(1 for question in self.results.search_results if len(question.retrieved_sources) > 0)}")
+        max_k = self.results.k
         k_list = [1, 3, 5, 10]
         scores = {}
         for k in k_list:
+            if k > max_k:
+                continue
             score = self.get_recall_score(k)
             scores.update({
                 f"recall@{k}": score,

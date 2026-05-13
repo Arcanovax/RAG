@@ -22,12 +22,10 @@ class Core:
         bm25s_folder="bm25_index",
         search_results=Path("data/output/search_results/dataset_docs_public.json"),
         questions_path=Path("data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json"),
-        answered_path=Path("data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json")
     ):
         self.dataset = Path("data/raw")
         self.search_results = search_results
         self.questions_path = questions_path
-        self.answered_path = answered_path
         self.process_path = process_path
         self.chunks_path = process_path / chunks_file
         self.bm25s_path = process_path / bm25s_folder
@@ -96,8 +94,12 @@ class Core:
     def answer_dataset(self):
         pass
 
-    def evaluate(self):
-        pass
+    def evaluate(self, answered_path, save_directory=None):
+        if save_directory is None:
+            save_path = self.search_results
+        else:
+            save_path = Path(save_directory) / "dataset_docs_public.json"
+        Evaluating(save_path, answered_path)
 
     def _save_all_answer(self, save_directory, all, k):
         if save_directory is None:
