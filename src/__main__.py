@@ -69,11 +69,11 @@ class Core:
                 "retrieved_sources": sources,
                 "answer": reponse
             }
-        print(MinimalAnswer(**answer))
+        self._save_all_results_and_answers(save_directory, [MinimalAnswer(**answer)], k)
 
 
-    def search_dataset(self, dataset_path, k=1, save_directory=None):
-        questions = get_questions(Path(dataset_path))
+    def search_dataset(self, questions_path, k=1, save_directory=None):
+        questions = get_questions(Path(questions_path))
         all = []
         for question in questions:
             print(question.get("question"))
@@ -92,7 +92,6 @@ class Core:
 
     def search(self, query, k=1, save_directory=None):
         print(query)
-        result = []
         selected_chunks = Retrieving(self.bm25s_path,
                                      self.chunks_path,
                                      query, k).get_selected_chunks()
@@ -104,11 +103,30 @@ class Core:
                 "question": query,
                 "retrieved_sources": sources
             }
-        result.append(MinimalSearchResults(**answer))
-        self._save_all_results(save_directory, result, k)
+        self._save_all_results(save_directory, [MinimalSearchResults(**answer)], k)
 
-    def answer_dataset(self):
-        pass
+    def answer_dataset(self, questions_path, k=1, save_directory=None):
+        questions = get_questions(Path(questions_path))
+        all = []
+        for question in questions:
+            print(question.get("question"))
+            selected_chunks = Retrieving(
+                self.bm25s_path,
+                self.chunks_path,
+                question.get("question"), k
+            ).get_selected_chunks()
+            reponse = Answering(selected_chunks, question.get("question")).get_answer()
+            sources = []
+            for chunk in selected_chunks:
+                sources.append(MinimalSource(**chunk))
+            answer = {
+                    "question_id": question.get("question_id"),
+                    "question": question.get("question"),
+                    "retrieved_sources": sources,
+                    "answer": reponse
+                }
+            all.append(MinimalAnswer(**answer))
+        self._save_all_results_and_answers(save_directory, all, k)
 
     def evaluate(self, answered_path, save_directory=None):
         if save_directory is None:
@@ -132,14 +150,14 @@ class Core:
         with open(save_path, "w") as file:
             file.write(result.model_dump_json(indent=2))
 
-    def _save_all_results_and_answers(self, save_directory, all):
+    def _save_all_results_and_answers(self, save_directory, all, k):
         if save_directory is None:
             save_path = self.search_results
         else:
             save_path = Path(save_directory) / "dataset_docs_public.json"
         result = StudentSearchResultsAndAnswer(
+            k=k,
             search_results=all,
-            k=k
         )
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w") as file:
@@ -150,28 +168,6 @@ class Core:
 
 def main():
     fire.Fire(Core)
-
-
-
-
-
-    # questions = get_questions(questions_path)
-    # all = []
-    # for question in questions:
-    #     print(question.get("question"))
-    #     selected_chunks = Retrieving(bm25s_path, chunks_file, question.get("question"), k).get_selected_chunks()
-    #     sources = []
-    #     for chunk in selected_chunks:
-    #         sources.append(MinimalSource(**chunk))
-    #     answer = {
-    #         "question_id": question.get("question_id"),
-    #         "question": question.get("question"),
-    #         "retrieved_sources": sources
-    #     }
-    #     all.append(MinimalSearchResults(**answer))
-    # save_all_answer(search_results, all, k)
-    # save_for_moulinette(all, k)
-    # Evaluating(search_results, answered_path)
 
 
 def save_for_moulinette(results, k):

@@ -38,5 +38,13 @@ class StudentSearchResults(BaseModel):
     k: int
 
 
-class StudentSearchResultsAndAnswer(StudentSearchResults):
-    search_results: List[MinimalAnswer]
+class StudentSearchResultsAndAnswer(BaseModel):
+    """Represent retrieval outputs augmented with generated answers.
+
+    Attributes:
+        k: Number of top retrieved sources used per question.
+        search_results: Results containing retrieved sources and answers.
+    """
+
+    k: int
+    search_results: list[MinimalAnswer]
