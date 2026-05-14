@@ -156,8 +156,8 @@ class Core:
         else:
             save_path = Path(save_directory) / "dataset_docs_public.json"
         result = StudentSearchResultsAndAnswer(
-            k=k,
             search_results=all,
+            k=k
         )
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w") as file:
