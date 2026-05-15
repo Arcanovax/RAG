@@ -24,14 +24,14 @@ class Core:
         chunks_file="chunks.json",
         bm25s_folder="bm25_index",
         search_results=Path("data/output/search_results/dataset_docs_public.json"),
-        questions_path=Path("data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json"),
     ):
         self.dataset = Path("data/raw")
         self.search_results = search_results
-        self.questions_path = questions_path
         self.process_path = process_path
         self.chunks_path = process_path / chunks_file
         self.bm25s_path = process_path / bm25s_folder
+        self.search_results_path = output_path / "search_results"
+        self.search_results_and_answer_path = output_path / "search_results_and_answer"
 
 
     def index(self, max_chunk_size=2000, dataset_type="docs", dataset=None):
@@ -69,11 +69,12 @@ class Core:
                 "retrieved_sources": sources,
                 "answer": reponse
             }
-        self._save_all_results_and_answers(save_directory, [MinimalAnswer(**answer)], k)
+        self._save_all_results_and_answers(save_directory, "answer.json", [MinimalAnswer(**answer)], k)
 
 
     def search_dataset(self, questions_path, k=1, save_directory=None):
         questions = get_questions(Path(questions_path))
+        file_name = Path(questions_path).name
         all = []
         for question in questions:
             print(question.get("question"))
@@ -87,7 +88,7 @@ class Core:
                 "retrieved_sources": sources
             }
             all.append(MinimalSearchResults(**answer))
-        self._save_all_results(save_directory, all, k)
+        self._save_all_results(save_directory, file_name, all, k)
         save_for_moulinette(all, k)
 
     def search(self, query, k=1, save_directory=None):
@@ -103,10 +104,11 @@ class Core:
                 "question": query,
                 "retrieved_sources": sources
             }
-        self._save_all_results(save_directory, [MinimalSearchResults(**answer)], k)
+        self._save_all_results(save_directory, "search.json", [MinimalSearchResults(**answer)], k)
 
     def answer_dataset(self, questions_path, k=1, save_directory=None):
         questions = get_questions(Path(questions_path))
+        file_name = Path(questions_path).name
         all = []
         for question in questions:
             print(question.get("question"))
@@ -126,22 +128,16 @@ class Core:
                     "answer": reponse
                 }
             all.append(MinimalAnswer(**answer))
-        self._save_all_results_and_answers(save_directory, all, k)
+        self._save_all_results_and_answers(save_directory, file_name, all, k)
 
-    def evaluate(self, answered_path, save_directory=None):
-        if save_directory is None:
-            save_path = self.search_results
-            if not save_path.parent.exists():
-                raise ValueError(f"Search the data before evaluate, use search_data")
-        else:
-            save_path = Path(save_directory) / "dataset_docs_public.json"
-        Evaluating(save_path, answered_path)
+    def evaluate(self, path_result, path_answered_questions):
+        Evaluating(path_result, path_answered_questions)
 
-    def _save_all_results(self, save_directory, all, k):
+    def _save_all_results(self, save_directory, file_name, all, k):
         if save_directory is None:
-            save_path = self.search_results
+            save_path = self.search_results_path / file_name
         else:
-            save_path = Path(save_directory) / "dataset_docs_public.json"
+            save_path = Path(save_directory) / file_name
         result = StudentSearchResults(
             search_results=all,
             k=k
@@ -150,11 +146,11 @@ class Core:
         with open(save_path, "w") as file:
             file.write(result.model_dump_json(indent=2))
 
-    def _save_all_results_and_answers(self, save_directory, all, k):
+    def _save_all_results_and_answers(self, save_directory, file_name, all, k):
         if save_directory is None:
-            save_path = self.search_results
+            save_path = self.search_results_and_answer_path / file_name
         else:
-            save_path = Path(save_directory) / "dataset_docs_public.json"
+            save_path = Path(save_directory) / file_name
         result = StudentSearchResultsAndAnswer(
             search_results=all,
             k=k
@@ -190,7 +186,7 @@ def save_for_moulinette(results, k):
             "search_results": all,
             "k": k
         }
-        with (open("result.json", "w")as file):
+        with (open("moulinette_format_result.json", "w")as file):
             file.write(json.dumps(data, indent=2))
     except Exception:
         raise (ValueError("Cannot write"))
