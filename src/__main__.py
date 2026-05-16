@@ -2,7 +2,7 @@ from .chunking import Chunking
 from .retrieving import Retrieving
 from .indexing import Indexing
 from .evaluating import Evaluating
-from .answering import Answering
+from .answering import Answering, Model
 from pathlib import Path
 from enum import Enum
 from .utils.model import (StudentSearchResults,
@@ -59,7 +59,8 @@ class Core:
         selected_chunks = Retrieving(self.bm25s_path,
                                      self.chunks_path,
                                      query, k).get_selected_chunks()
-        reponse = Answering(selected_chunks, query).get_answer()
+        model = Model("openai/Qwen/Qwen3-0.6B")
+        reponse = Answering(model, selected_chunks, query).get_answer()
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
@@ -110,6 +111,7 @@ class Core:
         questions = get_questions(Path(questions_path))
         file_name = Path(questions_path).name
         all = []
+        model = Model("openai/Qwen/Qwen3-0.6B")
         for question in questions:
             print(question.get("question"))
             selected_chunks = Retrieving(
@@ -117,7 +119,7 @@ class Core:
                 self.chunks_path,
                 question.get("question"), k
             ).get_selected_chunks()
-            reponse = Answering(selected_chunks, question.get("question")).get_answer()
+            reponse = Answering(model, selected_chunks, question.get("question")).get_answer()
             sources = []
             for chunk in selected_chunks:
                 sources.append(MinimalSource(**chunk))

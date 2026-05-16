@@ -12,27 +12,33 @@ class Signature(dspy.Signature):
         desc="answer ONLY. one or two sentences. No markdown, No symbols."
     )
 
+
+class Model():
+    def __init__(self, model):
+        print("Loading", model)
+        self.lm = dspy.LM(
+                    model=model,
+                    api_base="http://localhost:8000/v1",
+                    api_key="EMPTY",
+                    max_tokens=256,
+                    temperature=0.1,
+                    frequency_penalty=0.3,
+                    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                )
+        dspy.configure(lm=self.lm)
+        self.predictor = dspy.Predict(Signature)
+
+
 class Answering():
-    def __init__(self, chunks, query):
+    def __init__(self, model: Model, chunks, query):
         try:
             self.chunks = chunks
             self.query = query
-            self.lm = dspy.LM(
-                model="openai/Qwen/Qwen3-0.6B",
-                api_base="http://localhost:8000/v1",
-                api_key="EMPTY",
-                max_tokens=1024,
-                temperature=0.1,
-                frequency_penalty=0.3,
-                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-            )
-            dspy.configure(lm=self.lm)
-            predictor = dspy.Predict(Signature)
-            result = predictor(context=self.get_context(chunks), question=query)
+            result = model.predictor(context=self.get_context(chunks), question=query)
             response = result.answer
             response = response.replace("\n", "")
             response = response.replace("[[ ## completed ## ]]", "")
-            dspy.inspect_history()
+            # dspy.inspect_history()
             self.answer = response
         except dspy.utils.exceptions.ContextWindowExceededError:
             raise ValueError("The k value is too high")
