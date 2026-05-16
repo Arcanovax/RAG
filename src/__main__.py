@@ -13,6 +13,8 @@ from .utils.model import (StudentSearchResults,
 import json
 import fire
 import uuid
+import os
+from tqdm import tqdm
 
 
 
@@ -76,44 +78,43 @@ class Core:
     def search_dataset(self, questions_path, k=1, save_directory=None):
         questions = get_questions(Path(questions_path))
         file_name = Path(questions_path).name
-        all = []
+        self._init_results(save_directory, file_name, k)
         for question in questions:
             print(question.get("question"))
             selected_chunks = Retrieving(self.bm25s_path, self.chunks_path, question.get("question"), k).get_selected_chunks()
             sources = []
             for chunk in selected_chunks:
                 sources.append(MinimalSource(**chunk))
-            answer = {
-                "question_id": question.get("question_id"),
-                "question": question.get("question"),
-                "retrieved_sources": sources
-            }
-            all.append(MinimalSearchResults(**answer))
-        self._save_all_results(save_directory, file_name, all, k)
-        save_for_moulinette(all, k)
+            answer = MinimalSearchResults(
+                question_id=question.get("question_id"),
+                question=question.get("question"),
+                retrieved_sources=sources
+            )
+            self._save_result(save_directory, file_name, answer)
+        self.save_for_moulinette(save_directory, file_name, k)
 
     def search(self, query, k=1, save_directory=None):
-        print(query)
+        file_name = "search.json"
+        self._init_results(save_directory, file_name, k)
         selected_chunks = Retrieving(self.bm25s_path,
                                      self.chunks_path,
                                      query, k).get_selected_chunks()
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
-        answer = {
-                "question_id": str(uuid.uuid4()),
-                "question": query,
-                "retrieved_sources": sources
-            }
-        self._save_all_results(save_directory, "search.json", [MinimalSearchResults(**answer)], k)
+        answer = MinimalSearchResults(
+            question_id=str(uuid.uuid4()),
+            question=query,
+            retrieved_sources=sources
+        )
+        self._save_result(save_directory, file_name, answer)
 
     def answer_dataset(self, questions_path, k=1, save_directory=None):
         questions = get_questions(Path(questions_path))
         file_name = Path(questions_path).name
-        all = []
+        self._init_results_and_answers(save_directory, file_name, k)
         model = Model("openai/Qwen/Qwen3-0.6B")
-        for question in questions:
-            print(question.get("question"))
+        for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
             selected_chunks = Retrieving(
                 self.bm25s_path,
                 self.chunks_path,
@@ -123,77 +124,106 @@ class Core:
             sources = []
             for chunk in selected_chunks:
                 sources.append(MinimalSource(**chunk))
-            answer = {
-                    "question_id": question.get("question_id"),
-                    "question": question.get("question"),
-                    "retrieved_sources": sources,
-                    "answer": reponse
-                }
-            all.append(MinimalAnswer(**answer))
-        self._save_all_results_and_answers(save_directory, file_name, all, k)
+            answer = MinimalAnswer(
+                question_id=question.get("question_id"),
+                question=question.get("question"),
+                retrieved_sources=sources,
+                answer=reponse
+            )
+            self._save_results_and_answers(save_directory, file_name, answer)
 
     def evaluate(self, path_result, path_answered_questions):
         Evaluating(path_result, path_answered_questions)
 
-    def _save_all_results(self, save_directory, file_name, all, k):
+    def _init_results(self, save_directory, file_name, k):
         if save_directory is None:
             save_path = self.search_results_path / file_name
         else:
             save_path = Path(save_directory) / file_name
-        result = StudentSearchResults(
-            search_results=all,
-            k=k
-        )
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w") as file:
-            file.write(result.model_dump_json(indent=2))
+            file.write(StudentSearchResults(
+                search_results=[],
+                k=k
+            ).model_dump_json(indent=2))
 
-    def _save_all_results_and_answers(self, save_directory, file_name, all, k):
+    def _init_results_and_answers(self, save_directory, file_name, k):
         if save_directory is None:
             save_path = self.search_results_and_answer_path / file_name
         else:
             save_path = Path(save_directory) / file_name
-        result = StudentSearchResultsAndAnswer(
-            search_results=all,
-            k=k
-        )
         save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w") as file:
-            file.write(result.model_dump_json(indent=2))
+            file.write(StudentSearchResultsAndAnswer(
+                search_results=[],
+                k=k
+            ).model_dump_json(indent=2))
 
 
+    def _save_result(self, save_directory, file_name, result):
+        if save_directory is None:
+            save_path = self.search_results_path / file_name
+        else:
+            save_path = Path(save_directory) / file_name
+
+        with open(save_path, "r") as file:
+            raw_data = file.read()
+            data = StudentSearchResults.model_validate_json(raw_data)
+        data.search_results.append(result)
+        with open(save_path, "w") as file:
+            file.write(data.model_dump_json(indent=2))
+
+
+
+    def _save_results_and_answers(self, save_directory, file_name, result):
+        if save_directory is None:
+            save_path = self.search_results_and_answer_path / file_name
+        else:
+            save_path = Path(save_directory) / file_name
+        with open(save_path, "r") as file:
+            raw_data = file.read()
+            data = StudentSearchResultsAndAnswer.model_validate_json(raw_data)
+        data.search_results.append(result)
+        with open(save_path, "w") as file:
+            file.write(data.model_dump_json(indent=2))
+
+
+    def save_for_moulinette(self, save_directory, file_name, k):
+        try:
+            if save_directory is None:
+                save_path = self.search_results_path / file_name
+            else:
+                save_path = Path(save_directory) / file_name
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(save_path, "r") as file:
+                raw_data = file.read()
+                results = StudentSearchResults.model_validate_json(raw_data)
+            all = []
+            for result in results.search_results:
+                sources = []
+                for chunk in result.retrieved_sources:
+                    sources.append({
+                            "file_path": chunk.file_path,
+                            "first_character_index": chunk.first_character_index,
+                            "last_character_index": chunk.last_character_index})
+                answer = {
+                    "question_id": result.question_id,
+                    "question_str": result.question,
+                    "retrieved_sources": sources
+                }
+                all.append(answer)
+            data = {
+                "search_results": all,
+                "k": k
+            }
+            with (open("moulinette_format_result.json", "w")as file):
+                file.write(json.dumps(data, indent=2))
+        except Exception:
+            raise (ValueError("Cannot write"))
 
 
 def main():
     fire.Fire(Core)
-
-
-def save_for_moulinette(results, k):
-    try:
-        all = []
-        for result in results:
-            sources = []
-            for chunk in result.retrieved_sources:
-                sources.append({
-                        "file_path": chunk.file_path,
-                        "first_character_index": chunk.first_character_index,
-                        "last_character_index": chunk.last_character_index})
-            answer = {
-                "question_id": result.question_id,
-                "question_str": result.question,
-                "retrieved_sources": sources
-            }
-            all.append(answer)
-        data = {
-            "search_results": all,
-            "k": k
-        }
-        with (open("moulinette_format_result.json", "w")as file):
-            file.write(json.dumps(data, indent=2))
-    except Exception:
-        raise (ValueError("Cannot write"))
-
-
 
 
 def get_questions(file):

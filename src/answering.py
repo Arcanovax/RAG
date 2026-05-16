@@ -15,7 +15,6 @@ class Signature(dspy.Signature):
 
 class Model():
     def __init__(self, model):
-        print("Loading", model)
         self.lm = dspy.LM(
                     model=model,
                     api_base="http://localhost:8000/v1",
@@ -25,8 +24,10 @@ class Model():
                     frequency_penalty=0.3,
                     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
+
         dspy.configure(lm=self.lm)
         self.predictor = dspy.Predict(Signature)
+        print("Model:", model)
 
 
 class Answering():
@@ -38,10 +39,11 @@ class Answering():
             response = result.answer
             response = response.replace("\n", "")
             response = response.replace("[[ ## completed ## ]]", "")
-            # dspy.inspect_history()
             self.answer = response
         except dspy.utils.exceptions.ContextWindowExceededError:
             raise ValueError("The k value is too high")
+        except Exception:
+            raise ValueError("Answering failed")
 
     def get_answer(self):
         return self.answer
