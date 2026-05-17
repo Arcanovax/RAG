@@ -79,8 +79,7 @@ class Core:
         questions = get_questions(Path(questions_path))
         file_name = Path(questions_path).name
         self._init_results(save_directory, file_name, k)
-        for question in questions:
-            print(question.get("question"))
+        for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
             selected_chunks = Retrieving(self.bm25s_path, self.chunks_path, question.get("question"), k).get_selected_chunks()
             sources = []
             for chunk in selected_chunks:
