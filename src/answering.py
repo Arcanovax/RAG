@@ -1,7 +1,7 @@
 import dspy
 
 
-class Signature(dspy.Signature):
+class RAG_sign(dspy.Signature):
     """Answer the question using only the provided sources.
     """
     context: str = dspy.InputField(
@@ -12,9 +12,8 @@ class Signature(dspy.Signature):
         desc="answer ONLY. one or two sentences. No markdown, No symbols."
     )
 
-
 class Model():
-    def __init__(self, model):
+    def __init__(self, model, signature: dspy.Signature):
         self.lm = dspy.LM(
                     model=model,
                     api_base="http://localhost:8000/v1",
@@ -24,9 +23,8 @@ class Model():
                     frequency_penalty=0.3,
                     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
-
         dspy.configure(lm=self.lm)
-        self.predictor = dspy.Predict(Signature)
+        self.predictor = dspy.Predict(signature)
         print("Model:", model)
 
 

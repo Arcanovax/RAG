@@ -6,6 +6,7 @@ day 5: pydantic model
 day 6: answering
 day 7: struggling with VLLM
 day 8: making an external folder for VLLM with fix to run on cpu
+day 9: optimisation of VLLM, tqdm, caching, and writting files proggresly
 
 src:
 https://miptgirl.medium.com/programming-not-prompting-a-hands-on-guide-to-dspy-04ea2d966e6d
