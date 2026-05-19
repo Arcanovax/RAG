@@ -2,7 +2,7 @@ from .chunking import Chunking
 from .retrieving import Retrieving
 from .indexing import Indexing
 from .evaluating import Evaluating
-from .answering import Answering, Model, RAG_sign
+from .answering import Answering, Model
 from pathlib import Path
 from enum import Enum
 from .utils.model import (StudentSearchResults,
@@ -10,6 +10,9 @@ from .utils.model import (StudentSearchResults,
                           MinimalSource,
                           StudentSearchResultsAndAnswer,
                           MinimalAnswer)
+from .utils.input_model import (Index_model,
+                                Dataset_model,
+                                Query_model)
 import json
 import fire
 import uuid
@@ -24,69 +27,80 @@ import spacy
 class Core:
     def __init__(
         self,
-        process_path=Path("data/processed"),
-        output_path=Path("data/output"),
-        chunks_file="chunks.json",
-        bm25s_folder="bm25_index",
-        search_results=Path("data/output/search_results/dataset_docs_public.json"),
     ):
+        self.model_name = "openai/Qwen/Qwen3-0.6B"
         self.dataset = Path("data/raw")
-        self.search_results = search_results
-        self.process_path = process_path
-        self.chunks_path = process_path / chunks_file
-        self.bm25s_path = process_path / bm25s_folder
-        self.search_results_path = output_path / "search_results"
-        self.search_results_and_answer_path = output_path / "search_results_and_answer"
+        self.search_results = Path("data/output/search_results/dataset_docs_public.json")
+        self.process_path = Path("data/processed")
+        self.output_path=Path("data/output")
+        self.chunks_path = self.process_path / "chunks.json"
+        self.bm25s_path = self.process_path / "bm25_index"
+        self.search_results_path = self.output_path / "search_results"
+        self.search_results_and_answer_path = self.output_path / "search_results_and_answer"
 
 
     def index(self, max_chunk_size=2000, dataset_type="docs", dataset=None):
-        if not isinstance(max_chunk_size, int):
-            raise (ValueError("The max chunks size must be an int"))
-        if dataset_type != "docs" and dataset_type != "code":
-            raise (ValueError("The dataset is not valid"))
-        if dataset is None:
+        args = self._validate_args(Index_model, max_chunk_size=max_chunk_size, dataset_type=dataset_type, dataset=dataset)
+        if args is None:
+            return
+        if args.dataset is None:
             dataset_path = self.dataset
         else:
-            dataset_path = Path(dataset)
-        print(f"Ingesting {dataset_path} in {dataset_type} mode")
+            dataset_path = Path(args.dataset)
+        print(f"Ingesting {dataset_path} in {args.dataset_type} mode")
 
         self.all_chunks = Chunking(
             dataset_path,
-            max_chunk_size,
+            args.max_chunk_size,
             self.chunks_path,
-            dataset_type
+            args.dataset_type
         ).get_all_chunks()
 
         if len(self.all_chunks) == 0:
             raise (ValueError("No files found"))
-        Indexing(self.bm25s_path, self.all_chunks, dataset_type, self.process_path)
+        Indexing(self.bm25s_path, self.all_chunks, args.dataset_type, self.process_path)
 
 
-    def answer(self, query, k=1, save_directory=None):
-        selected_chunks = Retrieving(self.bm25s_path,
-                                     self.chunks_path,
-                                     query, k).get_selected_chunks()
-        model = Model("openai/Qwen/Qwen3-0.6B", RAG_sign)
-        reponse = Answering(model, selected_chunks, query).get_answer()
+    def answer(self, query, k=10, save_directory=None, hybrid=False, expand=False):
+        args = self._validate_args(
+            Query_model,query=query,
+            k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
+        )
+        if args is None:
+            return
+        retriver = Retrieving(
+            self.bm25s_path,
+            self.chunks_path,
+            k, hybrid, expand)
+        
+        selected_chunks = retriver.retrieve(args.query)
+        model = Model(self.model_name)
+        reponse = Answering(model, selected_chunks, args.query).get_answer()
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
         answer = {
                 "question_id": str(uuid.uuid4()),
-                "question": query,
+                "question": args.query,
                 "retrieved_sources": sources,
                 "answer": reponse
             }
-        self._save_results_and_answers(save_directory, "answer.json", [MinimalAnswer(**answer)], k)
+        self._save_results_and_answers(args.save_directory, "answer.json", [MinimalAnswer(**answer)], k)
 
 
     def search_dataset(self, questions_path, k=10, save_directory=None, hybrid=False, expand=False):
-        if not isinstance(hybrid, bool) or not isinstance(expand, bool):
-            raise ValueError("do not add argument to --hybrid or --expand flag")
-        questions = get_questions(Path(questions_path))
-        file_name = Path(questions_path).name
-        self._init_results(save_directory, file_name, k)
-        retriver = Retrieving(self.bm25s_path, self.chunks_path, k, hybrid, expand)
+        args = self._validate_args(
+            Dataset_model,
+            questions_path=questions_path,
+            k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
+        )
+        if args is None:
+            return
+        
+        questions = get_questions(Path(args.questions_path))
+        file_name = Path(args.questions_path).name
+        self._init_results(args.save_directory, file_name, args.k)
+        retriver = Retrieving(self.bm25s_path, self.chunks_path, args.k, args.hybrid, args.expand)
 
         for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
             selected_chunks = retriver.retrieve(question.get("question"))
@@ -98,39 +112,48 @@ class Core:
                 question=question.get("question"),
                 retrieved_sources=sources
             )
-            self._save_result(save_directory, file_name, answer)
-        self.save_for_moulinette(save_directory, file_name, k)
+            self._save_result(args.save_directory, file_name, answer)
+        self._save_for_moulinette(args.save_directory, file_name, k)
 
     def search(self, query, k=10, save_directory=None, hybrid=False, expand=False):
-        if not isinstance(hybrid, bool) or not isinstance(expand, bool):
-            raise ValueError("do not add argument to --hybrid or --expand flag")
+        args = self._validate_args(
+            Query_model,query=query,
+            k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
+        )
+        if args is None:
+            return
         file_name = "search.json"
-        self._init_results(save_directory, file_name, k)
-        retriver = Retrieving(self.bm25s_path, self.chunks_path, k, hybrid, expand)
+        self._init_results(args.save_directory, file_name, k)
+        retriver = Retrieving(self.bm25s_path, self.chunks_path, k, args.hybrid, args.expand)
 
-        selected_chunks = retriver.retrieve(query)
+        selected_chunks = retriver.retrieve(args.query)
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
         answer = MinimalSearchResults(
             question_id=str(uuid.uuid4()),
-            question=query,
+            question=args.query,
             retrieved_sources=sources
         )
-        self._save_result(save_directory, file_name, answer)
+        self._save_result(args.save_directory, file_name, answer)
 
-    def answer_dataset(self, questions_path, k=1, save_directory=None):
-        questions = get_questions(Path(questions_path))
-        file_name = Path(questions_path).name
-        self._init_results_and_answers(save_directory, file_name, k)
-        model = Model("openai/Qwen/Qwen3-0.6B", RAG_sign)
+    def answer_dataset(self, questions_path, k=1, save_directory=None, hybrid=False, expand=False):
+        args = self._validate_args(
+            Dataset_model,
+            questions_path=questions_path,
+            k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
+        )
+        if args is None:
+            return
+        
+        questions = get_questions(Path(args.questions_path))
+        file_name = Path(args.questions_path).name
+        self._init_results_and_answers(args.save_directory, file_name, args.k)
+        model = Model(self.model_name)
+        retriver = Retrieving(self.bm25s_path, self.chunks_path, args.k, args.hybrid, args.expand)
 
         for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
-            selected_chunks = Retrieving(
-                self.bm25s_path,
-                self.chunks_path,
-                question.get("question"), k
-            ).get_selected_chunks()
+            selected_chunks = retriver.retrieve(question.get("question"))
             reponse = Answering(model, selected_chunks, question.get("question")).get_answer()
             sources = []
             for chunk in selected_chunks:
@@ -141,7 +164,7 @@ class Core:
                 retrieved_sources=sources,
                 answer=reponse
             )
-            self._save_results_and_answers(save_directory, file_name, answer)
+            self._save_results_and_answers(args.save_directory, file_name, answer)
 
     def evaluate(self, path_result, path_answered_questions):
         Evaluating(path_result, path_answered_questions)
@@ -199,7 +222,7 @@ class Core:
             file.write(data.model_dump_json(indent=2))
 
 
-    def save_for_moulinette(self, save_directory, file_name, k):
+    def _save_for_moulinette(self, save_directory, file_name, k):
         try:
             if save_directory is None:
                 save_path = self.search_results_path / file_name
@@ -231,6 +254,14 @@ class Core:
                 file.write(json.dumps(data, indent=2))
         except Exception:
             raise (ValueError("Cannot write"))
+        
+    def _validate_args(self, model, **kwargs):
+        try:
+            return model(**kwargs)
+        except Exception as e:
+            for error in e.errors():
+                print(f"Error: {error.get('loc')[0]} ({error.get('msg')})")
+            return None
 
 
 def main():

@@ -13,7 +13,7 @@ class RAG_sign(dspy.Signature):
     )
 
 class Model():
-    def __init__(self, model, signature: dspy.Signature):
+    def __init__(self, model):
         self.lm = dspy.LM(
                     model=model,
                     api_base="http://localhost:8000/v1",
@@ -24,7 +24,7 @@ class Model():
                     extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
         dspy.configure(lm=self.lm)
-        self.predictor = dspy.Predict(signature)
+        self.predictor = dspy.Predict(RAG_sign)
         print("Model:", model)
 
 
