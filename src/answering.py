@@ -13,7 +13,12 @@ class RAG_sign(dspy.Signature):
     )
 
 class Model():
-    def __init__(self, model):
+    def __init__(self, model:str):
+        """Initialise the LLM and the predictor by calling VLLM
+
+        Args:
+            model (str): the model of the LLM
+        """
         self.lm = dspy.LM(
                     model=model,
                     api_base="http://localhost:8000/v1",

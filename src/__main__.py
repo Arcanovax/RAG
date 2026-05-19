@@ -12,7 +12,8 @@ from .utils.model import (StudentSearchResults,
                           MinimalAnswer)
 from .utils.input_model import (Index_model,
                                 Dataset_model,
-                                Query_model)
+                                Query_model,
+                                BaseModel)
 import json
 import fire
 import uuid
@@ -28,6 +29,8 @@ class Core:
     def __init__(
         self,
     ):
+        """Init the Core function that handle all the CLI
+        """
         self.model_name = "openai/Qwen/Qwen3-0.6B"
         self.dataset = Path("data/raw")
         self.search_results = Path("data/output/search_results/dataset_docs_public.json")
@@ -40,6 +43,13 @@ class Core:
 
 
     def index(self, max_chunk_size=2000, dataset_type="docs", dataset=None):
+        """Index the dataset in chunks with langchain, if the dataset is in docs mode, a chroma database is created to handle semantic search
+
+        Args:
+            max_chunk_size (int, optional): Maximum size of a chunk. Defaults to 2000.
+            dataset_type (str, optional): Type of the dataset ("docs" or "code"). Defaults to "docs".
+            dataset (str, optional): Custom dataset path. Defaults to None.
+        """
         args = self._validate_args(Index_model, max_chunk_size=max_chunk_size, dataset_type=dataset_type, dataset=dataset)
         if args is None:
             return
@@ -61,7 +71,16 @@ class Core:
         Indexing(self.bm25s_path, self.all_chunks, args.dataset_type, self.process_path)
 
 
-    def answer(self, query, k=10, save_directory=None, hybrid=False, expand=False):
+    def answer(self, query:str, k=10, save_directory=None, hybrid=False, expand=False):
+        """Answer the query with the model according to the selected chunks retrieve from the retriever
+
+        Args:
+            query (str): question about the dataset
+            k (int, optional): Number of selected chunks. Defaults to 10.
+            save_directory (str, optional): Custom save directory. Defaults to None.
+            hybrid (bool, optional): Add hybrid retrive . Defaults to False.
+            expand (bool, optional): Expand the query for the retrieve. Defaults to False.
+        """
         args = self._validate_args(
             Query_model,query=query,
             k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
@@ -89,6 +108,15 @@ class Core:
 
 
     def search_dataset(self, questions_path, k=10, save_directory=None, hybrid=False, expand=False):
+        """Find the most relevant chunks for each questions of the list 
+
+        Args:
+            questions_path (str): list of questions about the dataset
+            k (int, optional): Number of selected chunks. Defaults to 10.
+            save_directory (str, optional): Custom save directory. Defaults to None.
+            hybrid (bool, optional): Add hybrid retrive. Defaults to False.
+            expand (bool, optional): Expand the query for the retrieve. Defaults to False.
+        """
         args = self._validate_args(
             Dataset_model,
             questions_path=questions_path,
@@ -115,7 +143,16 @@ class Core:
             self._save_result(args.save_directory, file_name, answer)
         self._save_for_moulinette(args.save_directory, file_name, k)
 
-    def search(self, query, k=10, save_directory=None, hybrid=False, expand=False):
+    def search(self, query: str, k=10, save_directory=None, hybrid=False, expand=False):
+        """Find the most relevant chunks to answer the query
+
+        Args:
+            query (str): question about the dataset
+            k (int, optional): Number of selected chunks. Defaults to 10.
+            save_directory (str, optional): Custom save directory. Defaults to None.
+            hybrid (bool, optional): Add hybrid retrive. Defaults to False.
+            expand (bool, optional): Expand the query for the retrieve. Defaults to False.
+        """
         args = self._validate_args(
             Query_model,query=query,
             k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
@@ -138,6 +175,15 @@ class Core:
         self._save_result(args.save_directory, file_name, answer)
 
     def answer_dataset(self, questions_path, k=1, save_directory=None, hybrid=False, expand=False):
+        """Answer all the questions with the model of the list according to the selected chunks retrieve from the retriever
+
+        Args:
+            questions_path (str): question about the dataset
+            k (int, optional): Number of selected chunks. Defaults to 10.
+            save_directory (str, optional): Custom save directory. Defaults to None.
+            hybrid (bool, optional): Add hybrid retrive. Defaults to False.
+            expand (bool, optional): Expand the query for the retrieve. Defaults to False.
+        """
         args = self._validate_args(
             Dataset_model,
             questions_path=questions_path,
@@ -164,12 +210,25 @@ class Core:
                 retrieved_sources=sources,
                 answer=reponse
             )
-            self._save_results_and_answers(args.save_directory, file_name, answer)
+            self._save_results_and_answers(args.save_directory, file_name: str, answer: str)
 
-    def evaluate(self, path_result, path_answered_questions):
-        Evaluating(path_result, path_answered_questions)
+    def evaluate(self, path_result: str, path_answered_questions: str):
+        """Evaluate the pertinence of the results found
+
+        Args:
+            path_result (str): results found
+            path_answered_questions (str): real answers
+        """
+        Evaluating(path_result: str, path_answered_questions: str)
 
     def _init_results(self, save_directory, file_name, k):
+        """Initialize the file for results
+ 
+        Args:
+            save_directory (str): Save directory
+            file_name (str): Save file name
+            k (int): Number of recall
+        """
         if save_directory is None:
             save_path = self.search_results_path / file_name
         else:
@@ -182,6 +241,13 @@ class Core:
             ).model_dump_json(indent=2))
 
     def _init_results_and_answers(self, save_directory, file_name, k):
+        """Initialize the file for results and answers
+
+        Args:
+            save_directory (str): Save directory
+            file_name (str): Save file name
+            k (int): Number of recall
+        """
         if save_directory is None:
             save_path = self.search_results_and_answer_path / file_name
         else:
@@ -194,7 +260,14 @@ class Core:
             ).model_dump_json(indent=2))
 
 
-    def _save_result(self, save_directory, file_name, result):
+    def _save_result(self, save_directory: str, file_name: str, result: MinimalSearchResults):
+        """Save the result in the file
+
+        Args:
+            save_directory (str): Save directory
+            file_name (str): Save file name
+            result (MinimalSearchResults): Result to save
+        """
         if save_directory is None:
             save_path = self.search_results_path / file_name
         else:
@@ -209,7 +282,14 @@ class Core:
 
 
 
-    def _save_results_and_answers(self, save_directory, file_name, result):
+    def _save_results_and_answers(self, save_directory: str, file_name: str, result: MinimalAnswer):
+        """Save the result and answer in the file
+
+        Args:
+            save_directory (str): Save directory
+            file_name (str): Save file name
+            result (MinimalAnswer): Result and answer to save
+        """
         if save_directory is None:
             save_path = self.search_results_and_answer_path / file_name
         else:
@@ -222,7 +302,14 @@ class Core:
             file.write(data.model_dump_json(indent=2))
 
 
-    def _save_for_moulinette(self, save_directory, file_name, k):
+    def _save_for_moulinette(self, save_directory: str, file_name: str, k: int):
+        """Get the save and creates a file compatible with the moulinette
+
+        Args:
+            save_directory (str): Save directory
+            file_name (str): Save file name
+            k (int): Number of recall
+        """
         try:
             if save_directory is None:
                 save_path = self.search_results_path / file_name
@@ -255,7 +342,15 @@ class Core:
         except Exception:
             raise (ValueError("Cannot write"))
         
-    def _validate_args(self, model, **kwargs):
+    def _validate_args(self, model: BaseModel, **kwargs):
+        """Validate all the args with a pydantic model
+
+        Args:
+            model (BaseModel): model 
+
+        Returns:
+            BaseModel: Arguments
+        """
         try:
             return model(**kwargs)
         except Exception as e:
@@ -268,7 +363,15 @@ def main():
     fire.Fire(Core)
 
 
-def get_questions(file):
+def get_questions(file: Path):
+    """Get all the questions from the file
+
+    Args:
+        file (Path): file path
+
+    Returns:
+        list: All the questions
+    """
     try:
         with (open(file, "r")as file):
             data = file.read()
