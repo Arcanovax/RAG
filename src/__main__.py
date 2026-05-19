@@ -80,18 +80,16 @@ class Core:
         self._save_all_results_and_answers(save_directory, "answer.json", [MinimalAnswer(**answer)], k)
 
 
-    def search_dataset(self, questions_path, k=1, save_directory=None, hybrid=False, expand=False):
+    def search_dataset(self, questions_path, k=10, save_directory=None, hybrid=False, expand=False):
+        if not isinstance(hybrid, bool) or not isinstance(expand, bool):
+            raise ValueError("do not add argument to --hybrid or --expand flag")
         questions = get_questions(Path(questions_path))
         file_name = Path(questions_path).name
         self._init_results(save_directory, file_name, k)
-
-        if expand:
-            nlp = spacy.load("en_core_web_lg")
-        else:
-            nlp = None
+        retriver = Retrieving(self.bm25s_path, self.chunks_path, k, hybrid, expand)
 
         for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
-            selected_chunks = Retrieving(self.bm25s_path, self.chunks_path, question.get("question"), k, hybrid, nlp).get_selected_chunks()
+            selected_chunks = retriver.retrieve(question.get("question"))
             sources = []
             for chunk in selected_chunks:
                 sources.append(MinimalSource(**chunk))
@@ -103,15 +101,13 @@ class Core:
             self._save_result(save_directory, file_name, answer)
         self.save_for_moulinette(save_directory, file_name, k)
 
-    def search(self, query, k=1, save_directory=None, hybrid=False):
+    def search(self, query, k=10, save_directory=None, hybrid=False, expand=False):
+        if not isinstance(hybrid, bool) or not isinstance(expand, bool):
+            raise ValueError("do not add argument to --hybrid or --expand flag")
         file_name = "search.json"
         self._init_results(save_directory, file_name, k)
-        selected_chunks = Retrieving(
-            self.bm25s_path,
-            self.chunks_path,
-            query, k,
-            hybrid
-            ).get_selected_chunks()
+        retriver = Retrieving(self.bm25s_path, self.chunks_path, k, hybrid, expand)
+        selected_chunks = retriver.retrieve(query)
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
@@ -127,6 +123,7 @@ class Core:
         file_name = Path(questions_path).name
         self._init_results_and_answers(save_directory, file_name, k)
         model = Model("openai/Qwen/Qwen3-0.6B", RAG_sign)
+        
         for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
             selected_chunks = Retrieving(
                 self.bm25s_path,
