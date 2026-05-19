@@ -77,7 +77,7 @@ class Core:
                 "retrieved_sources": sources,
                 "answer": reponse
             }
-        self._save_all_results_and_answers(save_directory, "answer.json", [MinimalAnswer(**answer)], k)
+        self._save_results_and_answers(save_directory, "answer.json", [MinimalAnswer(**answer)], k)
 
 
     def search_dataset(self, questions_path, k=10, save_directory=None, hybrid=False, expand=False):
@@ -107,6 +107,7 @@ class Core:
         file_name = "search.json"
         self._init_results(save_directory, file_name, k)
         retriver = Retrieving(self.bm25s_path, self.chunks_path, k, hybrid, expand)
+
         selected_chunks = retriver.retrieve(query)
         sources = []
         for chunk in selected_chunks:
@@ -123,7 +124,7 @@ class Core:
         file_name = Path(questions_path).name
         self._init_results_and_answers(save_directory, file_name, k)
         model = Model("openai/Qwen/Qwen3-0.6B", RAG_sign)
-        
+
         for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
             selected_chunks = Retrieving(
                 self.bm25s_path,
