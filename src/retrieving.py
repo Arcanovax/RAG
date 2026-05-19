@@ -2,8 +2,6 @@ import bm25s
 import json
 from pathlib import Path
 import chromadb
-from .answering import Model
-import requests
 from functools import lru_cache
 
 
@@ -21,29 +19,24 @@ class Retrieving():
         if not is_hybrid:
             self.selected_chunks = [self.chunks[i] for i in docs[0]]
         else:
-            try:
-                self.client = chromadb.PersistentClient(path="./chroma_db")
-                chroma_chunks = self.client.get_collection(name="Chunks")
+                client = chromadb.PersistentClient(path="data/processed/chroma_db")
+                if not self.is_semantic_valid(client):
+                    raise ValueError("Cannot use the --hybrid flag ont this data")
+                chroma_chunks = client.get_collection(name="Chunks")
                 results = chroma_chunks.query(
                     query_texts=self.question,
                     n_results=k,
                 )
                 chroma_ids = [int(i) for i in results["ids"][0]]
                 bm25_ids = list(docs[0])
-                fused_scores = {}
-                K_RRF = 10
+                self.selected_chunks = [self.chunks[i] for i in bm25_ids[:8]+chroma_ids[:2]]
 
-                for rank, id in enumerate(bm25_ids):
-                    fused_scores[id] = fused_scores.get(id, 0) + 1 / (K_RRF + rank)
 
-                for rank, id in enumerate(chroma_ids):
-                    fused_scores[id] = fused_scores.get(id, 0) + 1 / (K_RRF + rank)
-
-                top_ids = sorted(fused_scores, key=fused_scores.get, reverse=True)[:k]
-                self.selected_chunks = [self.chunks[i] for i in top_ids]
-
-            except Exception:
-                self.selected_chunks = []
+    def is_semantic_valid(self, client:chromadb.ClientAPI):
+        for collection in client.list_collections():
+            if collection.name == "Chunks":
+                return True
+        return False
 
     def get_selected_chunks(self):
         return self.selected_chunks

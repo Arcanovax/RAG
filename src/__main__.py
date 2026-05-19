@@ -40,6 +40,8 @@ class Core:
 
 
     def index(self, max_chunk_size=2000, dataset_type="docs", dataset=None):
+        if not isinstance(max_chunk_size, int):
+            raise (ValueError("The max chunks size must be an int"))
         if dataset_type != "docs" and dataset_type != "code":
             raise (ValueError("The dataset is not valid"))
         if dataset is None:
@@ -57,8 +59,8 @@ class Core:
 
         if len(self.all_chunks) == 0:
             raise (ValueError("No files found"))
-        Indexing(self.bm25s_path, self.all_chunks)
-        print(f"Ingestion complete! Indices saved under {self.process_path}")
+        Indexing(self.bm25s_path, self.all_chunks, dataset_type, self.process_path)
+
 
     def answer(self, query, k=1, save_directory=None):
         selected_chunks = Retrieving(self.bm25s_path,
