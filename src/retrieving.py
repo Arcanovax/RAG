@@ -4,7 +4,7 @@ from pathlib import Path
 import chromadb
 import spacy
 import Stemmer
-
+import re
 
 class Retrieving():
     CACHE_PATH = Path("./cache/expand_query_cache.json")
@@ -21,16 +21,13 @@ class Retrieving():
 
     def retrieve(self, question: str):
         ret_loaded = bm25s.BM25(k1=1.7).load(self.bm25s_path, load_corpus=True)
-        if self.is_expand:
-            expand_question = self.expand_query(question)
-            query_tokens = bm25s.tokenize(expand_question)
-        else:
-            query_tokens = bm25s.tokenize(question)
-        if not self.is_hybrid:
-            docs, scores = ret_loaded.retrieve(query_tokens, k=self.k)
-            return [self.chunks[i] for i in docs[0]]
-        else:
-            k_pool = max(self.k * 10, 50)
+        query_tokens = bm25s.tokenize(question)
+        ranked_lists = []
+
+        docs, scores = ret_loaded.retrieve(query_tokens, k=self.k)
+        ranked_lists.append((list(docs[0]), 1.15))
+        k_pool = max(self.k * 10, 50)
+        if self.is_hybrid:
             client = chromadb.PersistentClient(path="data/processed/chroma_db")
             if not self._is_semantic_valid(client):
                 raise ValueError("Cannot use the --hybrid flag ont this data")
@@ -39,23 +36,23 @@ class Retrieving():
                 query_texts=question,
                 n_results=k_pool,
             )
-            docs, scores = ret_loaded.retrieve(query_tokens, k=k_pool)
             chroma_ids = [int(i) for i in results["ids"][0]]
-            bm25_ids = list(docs[0])
-            scores: dict[str, float] = {}
+            ranked_lists.append((chroma_ids, 0.85))
 
-            ranked_lists = [
-                (chroma_ids, 0.85),
-                (bm25_ids, 1.15),
-            ]
+        if self.is_expand:
+            expand_question = self.expand_query(question)
+            query_tokens = bm25s.tokenize(expand_question)
+            docs, scores = ret_loaded.retrieve(query_tokens, k=k_pool)
+            ranked_lists.append((list(docs[0]), 0.85))
 
-            for doc_list, weight in ranked_lists:
-                for rank, doc_id in enumerate(doc_list):
-                    score = weight * (1.0 / (self.k + rank + 1))
-                    scores[doc_id] = scores.get(doc_id, 0.0) + score
+        scores: dict[str, float] = {}
+        for doc_list, weight in ranked_lists:
+            for rank, doc_id in enumerate(doc_list):
+                score = weight * (1.0 / (self.k + rank + 1))
+                scores[doc_id] = scores.get(doc_id, 0.0) + score
 
-            fused_ids = [doc_id for doc_id, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)][:self.k]
-            return [self.chunks[int(i)] for i in fused_ids]
+        fused_ids = [doc_id for doc_id, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)][:self.k]
+        return [self.chunks[int(i)] for i in fused_ids]
 
 
 
@@ -92,6 +89,7 @@ class Retrieving():
 
     def expand(self, question):
         doc = self.nlp(question)
+
         keywords = [token.lemma_ for token in doc
                     if not token.is_stop and token.is_alpha]
 
