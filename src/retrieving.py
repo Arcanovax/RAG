@@ -26,28 +26,38 @@ class Retrieving():
             query_tokens = bm25s.tokenize(expand_question)
         else:
             query_tokens = bm25s.tokenize(question)
-        docs, scores = ret_loaded.retrieve(query_tokens, k=self.k)
-        bm25_k = round(self.k * 0.8)
-        chroma_k = self.k - bm25_k
-        if not self.is_hybrid or chroma_k <= 0:
+        if not self.is_hybrid:
+            docs, scores = ret_loaded.retrieve(query_tokens, k=self.k)
             return [self.chunks[i] for i in docs[0]]
+        else:
+            k_pool = max(self.k * 10, 50)
+            client = chromadb.PersistentClient(path="data/processed/chroma_db")
+            if not self._is_semantic_valid(client):
+                raise ValueError("Cannot use the --hybrid flag ont this data")
+            chroma_chunks = client.get_collection(name="Chunks")
+            results = chroma_chunks.query(
+                query_texts=question,
+                n_results=k_pool,
+            )
+            docs, scores = ret_loaded.retrieve(query_tokens, k=k_pool)
+            chroma_ids = [int(i) for i in results["ids"][0]]
+            bm25_ids = list(docs[0])
+            scores: dict[str, float] = {}
 
-        client = chromadb.PersistentClient(path="data/processed/chroma_db")
-        if not self._is_semantic_valid(client):
-            raise ValueError("Cannot use the --hybrid flag ont this data")
-        chroma_chunks = client.get_collection(name="Chunks")
-        results = chroma_chunks.query(
-            query_texts=question,
-            n_results=self.k,
-        )
+            ranked_lists = [
+                (chroma_ids, 0.85),
+                (bm25_ids, 1.15),
+            ]
 
-        results = chroma_chunks.query(
-            query_texts=question,
-            n_results=chroma_k,
-        )
-        chroma_ids = [int(i) for i in results["ids"][0]]
-        bm25_ids = list(docs[0])
-        return [self.chunks[i] for i in bm25_ids[:bm25_k] + chroma_ids[:chroma_k]]
+            for doc_list, weight in ranked_lists:
+                for rank, doc_id in enumerate(doc_list):
+                    score = weight * (1.0 / (self.k + rank + 1))
+                    scores[doc_id] = scores.get(doc_id, 0.0) + score
+
+            fused_ids = [doc_id for doc_id, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)][:self.k]
+            return [self.chunks[int(i)] for i in fused_ids]
+
+
 
 
     def _is_semantic_valid(self, client: chromadb.ClientAPI):
