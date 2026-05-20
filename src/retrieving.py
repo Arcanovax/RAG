@@ -43,7 +43,7 @@ class Retrieving():
             expand_question = self.expand_query(question)
             query_tokens = bm25s.tokenize(expand_question)
             docs, scores = ret_loaded.retrieve(query_tokens, k=k_pool)
-            ranked_lists.append((list(docs[0]), 0.85))
+            ranked_lists.append((list(docs[0]), 1.10))
 
         scores: dict[str, float] = {}
         for doc_list, weight in ranked_lists:
@@ -90,16 +90,34 @@ class Retrieving():
     def expand(self, question):
         doc = self.nlp(question)
 
+        # 1. Comportement original intact pour les docs (strictement is_alpha sans altérer la casse ou la ponctuation originale)
         keywords = [token.lemma_ for token in doc
                     if not token.is_stop and token.is_alpha]
 
         similar_terms = []
         for token in doc:
-            if not token.is_stop and token.has_vector and token.vocab.vectors.shape[0] > 0:
+            if not token.is_stop and token.is_alpha and token.has_vector and token.vocab.vectors.shape[0] > 0:
                 similar = token.vocab.vectors.most_similar(
                     token.vector.reshape(1, -1), n=3
                 )
                 similar_terms += [token.vocab.strings[i] for i in similar[0][0]]
 
-        expanded = f"{question} {' '.join(keywords)} {' '.join(similar_terms)}"
+        # 2. Ajout spécifique pour le code (variables avec _, camelCase, etc.)
+        code_keywords = []
+        for token in doc:
+            if not token.is_stop:
+                text = token.text
+                if "_" in text or re.search(r'[a-z][A-Z]', text):
+                    # version complète avec les séparateurs transformés en espaces
+                    subwords = re.sub(r'[_.-]', ' ', text)
+                    subwords = re.sub(r'([a-z])([A-Z])', r'\1 \2', subwords)
+                    code_keywords.append(subwords)
+                    
+                    # extraction des sous-mots
+                    for part in subwords.split():
+                        if part.lower() not in self.nlp.Defaults.stop_words and len(part) > 1:
+                            code_keywords.append(part)
+
+        # On rajoute tous les termes additionnels à la requête originale
+        expanded = f"{question} {' '.join(keywords)} {' '.join(similar_terms)} {' '.join(code_keywords)}"
         return expanded
