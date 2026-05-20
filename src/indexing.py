@@ -3,6 +3,8 @@ import chromadb
 from tqdm import tqdm
 import shutil
 from pathlib import Path
+import Stemmer
+import re
 
 class Indexing:
     def __init__(self, save_path, all_chunks, dataset_type, process_path):
@@ -27,11 +29,16 @@ class Indexing:
         self.chroma_metadatas = []
         self.chroma_documents = []
         for id, chunk in enumerate(self.all_chunks):
-            corpus.append(f"{chunk['file_path']}   {chunk['content']}")
+            simple_path = chunk['file_path'].replace('.', ' ').replace('_', ' ').replace('/', ' ')
+            clean_content = chunk['content'].replace('_', ' ')
+            clean_content = re.sub(
+                r'([a-z])([A-Z])', r'\1 \2', clean_content)
+            bms25s_txt = f"{chunk['file_path']} {simple_path*7}\n\n{clean_content}\n\n{chunk['content']}"
+            corpus.append(bms25s_txt)
             self.chroma_documents.append(chunk['content'])
             self.chroma_ids.append(str(id))
             self.chroma_metadatas.append({"source": chunk['file_path']})
-        retriever = bm25s.BM25()
+        retriever = bm25s.BM25(k1=1.7)
         corpus_tokens = bm25s.tokenize(corpus)
         retriever.index(corpus_tokens)
         retriever.save(self.save_path)

@@ -15,3 +15,5 @@ https://www.geeksforgeeks.org/artificial-intelligence/chunking-strategies/
 
 https://docs.ollama.com/api/openai-compatibility
 https://github.com/ollama/ollama/releases
+
+https://rajivshah.com/blog/rag-agentic-world.html

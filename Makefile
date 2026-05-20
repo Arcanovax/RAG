@@ -6,7 +6,6 @@ VENV = .venv
 
 install:
 	uv sync
-	$(UV_PY) -m spacy download en_core_web_lg
 
 run:
 	$(UV_PY) -m src $(ARGS)

@@ -91,7 +91,7 @@ class Core:
             self.bm25s_path,
             self.chunks_path,
             k, hybrid, expand)
-        
+
         selected_chunks = retriver.retrieve(args.query)
         model = Model(self.model_name)
         reponse = Answering(model, selected_chunks, args.query).get_answer()
@@ -108,7 +108,7 @@ class Core:
 
 
     def search_dataset(self, questions_path, k=10, save_directory=None, hybrid=False, expand=False):
-        """Find the most relevant chunks for each questions of the list 
+        """Find the most relevant chunks for each questions of the list
 
         Args:
             questions_path (str): list of questions about the dataset
@@ -124,8 +124,8 @@ class Core:
         )
         if args is None:
             return
-        
-        questions = get_questions(Path(args.questions_path))
+
+        questions = self._get_questions(Path(args.questions_path))
         file_name = Path(args.questions_path).name
         self._init_results(args.save_directory, file_name, args.k)
         retriver = Retrieving(self.bm25s_path, self.chunks_path, args.k, args.hybrid, args.expand)
@@ -191,8 +191,8 @@ class Core:
         )
         if args is None:
             return
-        
-        questions = get_questions(Path(args.questions_path))
+
+        questions = self._get_questions(Path(args.questions_path))
         file_name = Path(args.questions_path).name
         self._init_results_and_answers(args.save_directory, file_name, args.k)
         model = Model(self.model_name)
@@ -210,7 +210,7 @@ class Core:
                 retrieved_sources=sources,
                 answer=reponse
             )
-            self._save_results_and_answers(args.save_directory, file_name: str, answer: str)
+            self._save_results_and_answers(args.save_directory, file_name, answer)
 
     def evaluate(self, path_result: str, path_answered_questions: str):
         """Evaluate the pertinence of the results found
@@ -219,11 +219,11 @@ class Core:
             path_result (str): results found
             path_answered_questions (str): real answers
         """
-        Evaluating(path_result: str, path_answered_questions: str)
+        Evaluating(path_result, path_answered_questions)
 
-    def _init_results(self, save_directory, file_name, k):
+    def _init_results(self, save_directory: str, file_name: str, k):
         """Initialize the file for results
- 
+
         Args:
             save_directory (str): Save directory
             file_name (str): Save file name
@@ -341,12 +341,12 @@ class Core:
                 file.write(json.dumps(data, indent=2))
         except Exception:
             raise (ValueError("Cannot write"))
-        
+
     def _validate_args(self, model: BaseModel, **kwargs):
         """Validate all the args with a pydantic model
 
         Args:
-            model (BaseModel): model 
+            model (BaseModel): model
 
         Returns:
             BaseModel: Arguments
@@ -358,27 +358,29 @@ class Core:
                 print(f"Error: {error.get('loc')[0]} ({error.get('msg')})")
             return None
 
+    def _get_questions(self, file: Path):
+        """Get all the questions from the file
+
+        Args:
+            file (Path): file path
+
+        Returns:
+            list: All the questions
+        """
+        try:
+            with (open(file, "r")as file):
+                data = file.read()
+                data = json.loads(data)
+                return data.get("rag_questions")
+        except Exception:
+            raise (ValueError("questions not found"))
+
 
 def main():
     fire.Fire(Core)
 
 
-def get_questions(file: Path):
-    """Get all the questions from the file
 
-    Args:
-        file (Path): file path
-
-    Returns:
-        list: All the questions
-    """
-    try:
-        with (open(file, "r")as file):
-            data = file.read()
-            data = json.loads(data)
-            return data.get("rag_questions")
-    except Exception:
-        raise (ValueError("questions not found"))
 
 
 if __name__ == "__main__":

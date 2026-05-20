@@ -8,7 +8,7 @@ class Chunking():
                  chunks_file: Path, dataset_type):
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
-        overlap = 0.10
+        overlap = 0.20
         if dataset_type == "code":
             self.allowed_ext = [".py"]
         elif dataset_type == "docs":
@@ -19,18 +19,18 @@ class Chunking():
             language=Language.PYTHON,
             chunk_size=max_chunk_size,
             chunk_overlap=int(max_chunk_size * overlap),
-            add_start_index=True
+            add_start_index=True,
         )
         self.markdown_splitter = RecursiveCharacterTextSplitter.from_language(
             language=Language.MARKDOWN,
             chunk_size=max_chunk_size,
             chunk_overlap=int(max_chunk_size * overlap),
-            add_start_index=True
+            add_start_index=True,
         )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=max_chunk_size,
             chunk_overlap=int(max_chunk_size * overlap),
-            add_start_index=True
+            add_start_index=True,
         )
 
         all_chunks = []

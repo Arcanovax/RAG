@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import chromadb
 import spacy
+import Stemmer
 
 
 class Retrieving():
@@ -19,7 +20,7 @@ class Retrieving():
         self.get_chunks()
 
     def retrieve(self, question: str):
-        ret_loaded = bm25s.BM25.load(self.bm25s_path, load_corpus=True)
+        ret_loaded = bm25s.BM25(k1=1.7).load(self.bm25s_path, load_corpus=True)
         if self.is_expand:
             expand_question = self.expand_query(question)
             query_tokens = bm25s.tokenize(expand_question)
@@ -28,7 +29,7 @@ class Retrieving():
         docs, scores = ret_loaded.retrieve(query_tokens, k=self.k)
         bm25_k = round(self.k * 0.8)
         chroma_k = self.k - bm25_k
-        if not self.is_hybrid or chroma_k<= 0:
+        if not self.is_hybrid or chroma_k <= 0:
             return [self.chunks[i] for i in docs[0]]
 
         client = chromadb.PersistentClient(path="data/processed/chroma_db")
