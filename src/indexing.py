@@ -17,9 +17,9 @@ class Indexing:
             shutil.rmtree(self.chroma_path)
         self.save_for_retriever()
         if dataset_type == "docs":
-            print("Saving for semantic search...")
+            print("Saving for semantic embedding...")
             self.chroma_save()
-            print("Saved for semantic search")
+            print("Saved for semantic embedding")
 
         print(f"Ingestion complete! Indices saved under {self.process_path}")
 

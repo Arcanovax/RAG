@@ -9,7 +9,7 @@ class RAG_sign(dspy.Signature):
     )
     question: str = dspy.InputField()
     answer: str = dspy.OutputField(
-        desc="answer ONLY. one or two sentences. No markdown, No symbols. No mention, reference, or source chunks."
+        desc="answer ONLY. one or two sentences. No markdown, No symbols. Mention the original source"
     )
 
 class Model():
@@ -55,5 +55,6 @@ class Answering():
         context_parts = []
         for i, chunk in enumerate(chunks):
             content = chunk.get("content", "").strip()
-            context_parts.append(f"\n[[ ## SOURCE {i+1} ## ]]\n{content}")
+            file_path = chunk.get("", "").strip()
+            context_parts.append(f"\n[[ ## SOURCE: {} ## ]]\n{content}")
         return "\n".join(context_parts)
