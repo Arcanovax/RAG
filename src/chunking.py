@@ -9,7 +9,9 @@ class Chunking():
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
         overlap = 0.20
-        if dataset_type == "code":
+        if dataset_type == "all":
+            self.allowed_ext = [".py", ".md", ".txt"]
+        elif dataset_type == "code":
             self.allowed_ext = [".py"]
         elif dataset_type == "docs":
             self.allowed_ext = [".md", ".txt"]

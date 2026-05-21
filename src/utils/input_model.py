@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 
 class Index_model(BaseModel):
     max_chunk_size: int
-    dataset_type: Literal["docs", "code"]
+    dataset_type: Literal["docs", "code", "all"]
     dataset: Optional[str]
 
 class Dataset_model(BaseModel):

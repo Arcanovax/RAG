@@ -42,12 +42,12 @@ class Core:
         self.search_results_and_answer_path = self.output_path / "search_results_and_answer"
 
 
-    def index(self, max_chunk_size=2000, dataset_type="docs", dataset=None):
+    def index(self, max_chunk_size=2000, dataset_type="all", dataset=None):
         """Index the dataset in chunks with langchain, if the dataset is in docs mode, a chroma database is created to handle semantic search
 
         Args:
             max_chunk_size (int, optional): Maximum size of a chunk. Defaults to 2000.
-            dataset_type (str, optional): Type of the dataset ("docs" or "code"). Defaults to "docs".
+            dataset_type (str, optional): Type of the dataset ("docs", "code" or "all"). Defaults to "all".
             dataset (str, optional): Custom dataset path. Defaults to None.
         """
         args = self._validate_args(Index_model, max_chunk_size=max_chunk_size, dataset_type=dataset_type, dataset=dataset)

@@ -3,12 +3,9 @@ import json
 from pathlib import Path
 import chromadb
 import spacy
-import Stemmer
-import re
+from .utils.query_expander import Query_Expander
 
 class Retrieving():
-    CACHE_PATH = Path("./.cache/expand_query_cache.json")
-
     def __init__(self, bm25s_path, chunks_file: Path, k, is_hybrid, is_expand):
         self.chunks_file = chunks_file
         self.bm25s_path = bm25s_path
@@ -40,7 +37,7 @@ class Retrieving():
             ranked_lists.append((chroma_ids, 0.85))
 
         if self.is_expand:
-            expand_question = self.expand_query(question)
+            expand_question = Query_Expander(self.nlp).expand_query(question)
             query_tokens = bm25s.tokenize(expand_question)
             docs, scores = ret_loaded.retrieve(query_tokens, k=k_pool)
             ranked_lists.append((list(docs[0]), 1.10))
@@ -53,8 +50,6 @@ class Retrieving():
 
         fused_ids = [doc_id for doc_id, _ in sorted(scores.items(), key=lambda x: x[1], reverse=True)][:self.k]
         return [self.chunks[int(i)] for i in fused_ids]
-
-
 
 
     def _is_semantic_valid(self, client: chromadb.ClientAPI):
@@ -71,48 +66,4 @@ class Retrieving():
         except Exception:
             raise (ValueError("The dataset is not indexed, use index before"))
 
-    def expand_query(self, question):
-        cache = {}
-        if self.CACHE_PATH.exists():
-            cache = json.loads(self.CACHE_PATH.read_text())
 
-        if question in cache:
-            return cache[question]
-
-        expanded = self.expand(question)
-
-        cache[question] = expanded
-        self.CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        self.CACHE_PATH.write_text(json.dumps(cache, ensure_ascii=False, indent=2))
-        return expanded
-
-
-    def expand(self, question):
-        doc = self.nlp(question)
-
-        keywords = [token.lemma_ for token in doc
-                    if not token.is_stop and token.is_alpha]
-
-        similar_terms = []
-        for token in doc:
-            if not token.is_stop and token.is_alpha and token.has_vector and token.vocab.vectors.shape[0] > 0:
-                similar = token.vocab.vectors.most_similar(
-                    token.vector.reshape(1, -1), n=3
-                )
-                similar_terms += [token.vocab.strings[i] for i in similar[0][0]]
-
-        code_keywords = []
-        for token in doc:
-            if not token.is_stop:
-                text = token.text
-                if "_" in text or re.search(r'[a-z][A-Z]', text):
-                    words = re.sub(r'[_.-]', ' ', text)
-                    words = re.sub(r'([a-z])([A-Z])', r'\1 \2', words)
-                    code_keywords.append(words)
-                    for part in words.split():
-                        if part.lower() not in self.nlp.Defaults.stop_words and len(part) > 1:
-                            code_keywords.append(part)
-
-
-        expanded = f"{question} {' '.join(keywords)} {' '.join(similar_terms)} {' '.join(code_keywords)}"
-        return expanded
