@@ -19,7 +19,7 @@ clean:
 	rm -rf __pycache__ .mypy_cache .pytest_cache
 	rm -rf data/output
 	rm -rf data/processed
-# 	rm -rf $(VENV)
+	rm -rf cache
 
 lint:
 	$(UV_PY) -m flake8 $(SRCS_DIR)

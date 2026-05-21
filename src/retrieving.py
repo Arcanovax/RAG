@@ -7,7 +7,7 @@ import Stemmer
 import re
 
 class Retrieving():
-    CACHE_PATH = Path("./cache/expand_query_cache.json")
+    CACHE_PATH = Path("./.cache/expand_query_cache.json")
 
     def __init__(self, bm25s_path, chunks_file: Path, k, is_hybrid, is_expand):
         self.chunks_file = chunks_file
@@ -23,9 +23,9 @@ class Retrieving():
         ret_loaded = bm25s.BM25(k1=1.7).load(self.bm25s_path, load_corpus=True)
         query_tokens = bm25s.tokenize(question)
         ranked_lists = []
-
         docs, scores = ret_loaded.retrieve(query_tokens, k=self.k)
         ranked_lists.append((list(docs[0]), 1.15))
+
         k_pool = max(self.k * 10, 50)
         if self.is_hybrid:
             client = chromadb.PersistentClient(path="data/processed/chroma_db")
@@ -90,7 +90,6 @@ class Retrieving():
     def expand(self, question):
         doc = self.nlp(question)
 
-        # 1. Comportement original intact pour les docs (strictement is_alpha sans altérer la casse ou la ponctuation originale)
         keywords = [token.lemma_ for token in doc
                     if not token.is_stop and token.is_alpha]
 
@@ -102,22 +101,18 @@ class Retrieving():
                 )
                 similar_terms += [token.vocab.strings[i] for i in similar[0][0]]
 
-        # 2. Ajout spécifique pour le code (variables avec _, camelCase, etc.)
         code_keywords = []
         for token in doc:
             if not token.is_stop:
                 text = token.text
                 if "_" in text or re.search(r'[a-z][A-Z]', text):
-                    # version complète avec les séparateurs transformés en espaces
-                    subwords = re.sub(r'[_.-]', ' ', text)
-                    subwords = re.sub(r'([a-z])([A-Z])', r'\1 \2', subwords)
-                    code_keywords.append(subwords)
-                    
-                    # extraction des sous-mots
-                    for part in subwords.split():
+                    words = re.sub(r'[_.-]', ' ', text)
+                    words = re.sub(r'([a-z])([A-Z])', r'\1 \2', words)
+                    code_keywords.append(words)
+                    for part in words.split():
                         if part.lower() not in self.nlp.Defaults.stop_words and len(part) > 1:
                             code_keywords.append(part)
 
-        # On rajoute tous les termes additionnels à la requête originale
+
         expanded = f"{question} {' '.join(keywords)} {' '.join(similar_terms)} {' '.join(code_keywords)}"
         return expanded

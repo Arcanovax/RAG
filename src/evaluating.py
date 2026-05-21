@@ -70,8 +70,8 @@ class Evaluating:
         answer_x = answer.first_character_index
         answer_y = answer.last_character_index
         match = max(0, min(result_y, answer_y) - max(result_x, answer_x))
-        result_size = result_y - result_x
-        if result_size <= 0:
+        answer_size = answer_y - answer_x
+        if answer_size <= 0:
             return False
-        overlap = match / result_size
+        overlap = match / answer_size
         return overlap >= 0.05
