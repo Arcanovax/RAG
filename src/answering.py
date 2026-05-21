@@ -55,6 +55,5 @@ class Answering():
         context_parts = []
         for i, chunk in enumerate(chunks):
             content = chunk.get("content", "").strip()
-            file_path = chunk.get("", "").strip()
-            context_parts.append(f"\n[[ ## SOURCE: {} ## ]]\n{content}")
+            context_parts.append(f"\n[[ ## SOURCE {i+1} ## ]]\n{content}")
         return "\n".join(context_parts)
