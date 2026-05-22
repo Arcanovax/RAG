@@ -1,4 +1,4 @@
-SRCS_DIR = src
+SRCS_DIR = student
 UV_PY = uv run python3
 MYPY_FLAGS = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 VENV = .venv
@@ -8,10 +8,10 @@ install:
 	uv sync
 
 run:
-	$(UV_PY) -m src $(ARGS)
+	$(UV_PY) -m $(SRCS_DIR) $(ARGS)
 
 debug:
-	$(UV_PY) -m src --debug
+	$(UV_PY) -m $(SRCS_DIR) --debug
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
