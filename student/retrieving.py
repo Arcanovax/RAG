@@ -1,5 +1,5 @@
 import bm25s
-import json
+from .chunking import get_chunks
 from pathlib import Path
 import chromadb
 import spacy
@@ -8,14 +8,13 @@ from .utils.query_expander import Query_Expander
 
 class Retrieving():
     def __init__(self, bm25s_path, chunks_file: Path, k, is_hybrid, is_expand):
-        self.chunks_file = chunks_file
         self.bm25s_path = bm25s_path
         self.is_hybrid = is_hybrid
         self.is_expand = is_expand
         if is_expand:
             self.nlp = spacy.load("en_core_web_lg")
         self.k = k
-        self.get_chunks()
+        self.chunks = get_chunks(chunks_file)
 
     def retrieve(self, question: str):
         ret_loaded = bm25s.BM25(k1=1.7).load(self.bm25s_path, load_corpus=True)
@@ -66,10 +65,3 @@ class Retrieving():
                 return True
         return False
 
-    def get_chunks(self):
-        try:
-            with (open(self.chunks_file, "r")as file):
-                data = file.read()
-                self.chunks = json.loads(data)
-        except Exception:
-            raise (ValueError("The dataset is not indexed, use index before"))

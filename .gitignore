@@ -1,5 +1,7 @@
 data/processed
 data/output
+moulinette_format_result.json
+private
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

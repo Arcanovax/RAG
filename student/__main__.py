@@ -12,7 +12,8 @@ from .utils.model import (StudentSearchResults,
 from .utils.input_model import (Index_model,
                                 Dataset_model,
                                 Query_model,
-                                BaseModel)
+                                BaseModel,
+                                Answer_dataset_model)
 import json
 import fire
 import uuid
@@ -26,7 +27,7 @@ class Core:
         """Init the Core function that handle all the CLI
         """
         self._model_name = "openai/Qwen/Qwen3-0.6B"
-        self._dataset = Path("data/raw")
+        self._knowledge = Path("data/raw")
         self._search_results = Path("data/output/search_results/dataset_docs_public.json")
         self._process_path = Path("data/processed")
         self._output_path = Path("data/output")
@@ -36,7 +37,7 @@ class Core:
         self._search_results_and_answer_path = self._output_path / "search_results_and_answer"
 
 
-    def index(self, max_chunk_size=2000, dataset_type="all", dataset=None):
+    def index(self, max_chunk_size=2000, dataset_type="all", knowledge=None):
         """Index the dataset in chunks with langchain, if the dataset is in
         docs mode, a chroma database is created to handle semantic search
 
@@ -47,13 +48,13 @@ class Core:
             dataset (str, optional): Custom dataset path. Defaults to None.
         """
         args = self._validate_args(Index_model, max_chunk_size=max_chunk_size,
-                                   dataset_type=dataset_type, dataset=dataset)
+                                   dataset_type=dataset_type, knowledge=knowledge)
         if args is None:
             return
-        if args.dataset is None:
-            dataset_path = self._dataset
+        if args.knowledge is None:
+            dataset_path = self._knowledge
         else:
-            dataset_path = Path(args.dataset)
+            dataset_path = Path(args.knowledge)
         print(f"Ingesting {dataset_path} in {args.dataset_type} mode")
 
         self.all_chunks = Chunking(
@@ -81,20 +82,19 @@ class Core:
             expand (bool, optional): Expand the query for the retrieve.
         """
         args = self._validate_args(
-            Query_model,query=query,
+            Query_model, query=query,
             k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
         )
         if args is None:
             return
-        retriver = Retrieving(
-            self._bm25s_path,
-            self._chunks_path,
-            k, hybrid, expand)
-        self._init_results_and_answers(args.save_directory, "answer.json",
-                                       args.k)
+        retriver = Retrieving(self._bm25s_path, self._chunks_path,
+                              k, args.hybrid, args.expand)
+        save_path = self._init_results_and_answers(args.save_directory,
+                                                   "answer.json", args.k)
         selected_chunks = retriver.retrieve(args.query)
-        model = Model(self._model_name)
-        reponse = Answering(model, selected_chunks, args.query).get_answer()
+        print(f"Retrieve {len(selected_chunks)} chunk(s)")
+        answerer = Answering(self._model_name)
+        reponse = answerer.answer_query(selected_chunks, query)
         sources = []
         for chunk in selected_chunks:
             sources.append(MinimalSource(**chunk))
@@ -104,10 +104,10 @@ class Core:
                 "retrieved_sources": sources,
                 "answer": reponse
             }
-        self._save_results_and_answers(args.save_directory, "answer.json",
-                                       MinimalAnswer(**answer))
+        self._save_results_and_answers(save_path, MinimalAnswer(**answer))
+        print("Saved answer to", save_path)
 
-    def search_dataset(self, questions_path, k=10, save_directory=None,
+    def search_dataset(self, dataset_path, k=10, save_directory=None,
                        hybrid=False, expand=False):
         """Find the most relevant chunks for each questions of the list
 
@@ -120,7 +120,7 @@ class Core:
         """
         args = self._validate_args(
             Dataset_model,
-            questions_path=questions_path,
+            questions_path=dataset_path,
             k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
         )
         if args is None:
@@ -128,7 +128,7 @@ class Core:
 
         questions = self._get_questions(Path(args.questions_path))
         file_name = Path(args.questions_path).name
-        self._init_results(args.save_directory, file_name, args.k)
+        save_path = self._init_results(args.save_directory, file_name, args.k)
         retriver = Retrieving(self._bm25s_path, self._chunks_path,
                               args.k, args.hybrid, args.expand)
 
@@ -142,8 +142,10 @@ class Core:
                 question=question.get("question"),
                 retrieved_sources=sources
             )
-            self._save_result(args.save_directory, file_name, answer)
-        self._save_for_moulinette(args.save_directory, file_name, k)
+            self._save_result(save_path, answer)
+
+        print("Saved student_search_results to", save_path)
+        self._save_for_moulinette(save_path, k)
 
     def search(self, query: str, k=10, save_directory=None,
                hybrid=False, expand=False):
@@ -163,7 +165,7 @@ class Core:
         if args is None:
             return
         file_name = "search.json"
-        self._init_results(args.save_directory, file_name, k)
+        save_path = self._init_results(args.save_directory, file_name, k)
         retriver = Retrieving(self._bm25s_path, self._chunks_path, k,
                               args.hybrid, args.expand)
 
@@ -176,11 +178,12 @@ class Core:
             question=args.query,
             retrieved_sources=sources
         )
-        self._save_result(args.save_directory, file_name, answer)
+        self._save_result(save_path, answer)
+        print("Saved search to", save_path)
 
-    def answer_dataset(self, questions_path, k=1, save_directory=None, hybrid=False, expand=False):
+    def answer_dataset(self, student_search_results_path, save_directory=None):
         """Answer all the questions with the model of the list according to
-        the selected chunks retrieve from the retriever
+        the selected chunks retrieve from the retriever save path
 
         Args:
             questions_path (str): question about the dataset
@@ -190,35 +193,33 @@ class Core:
             expand (bool, optional): Expand the query for the retrieve.
         """
         args = self._validate_args(
-            Dataset_model,
-            questions_path=questions_path,
-            k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
+            Answer_dataset_model,
+            student_search_results_path=student_search_results_path,
+            save_directory=save_directory
         )
         if args is None:
             return
+        search_results, k = self._get_search_results(args.student_search_results_path)
+        print(f"Loaded {len(search_results)} questions from {student_search_results_path}")
 
-        questions = self._get_questions(Path(args.questions_path))
-        file_name = Path(args.questions_path).name
-        self._init_results_and_answers(args.save_directory, file_name, args.k)
-        model = Model(self._model_name)
-        retriver = Retrieving(self._bm25s_path, self._chunks_path,
-                              args.k, args.hybrid, args.expand)
+        file_name = Path(args.student_search_results_path).name
+        save_path = self._init_results_and_answers(args.save_directory, file_name, k)
 
-        for question in tqdm(questions, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
-            selected_chunks = retriver.retrieve(question.get("question"))
-            reponse = Answering(model, selected_chunks,
-                                question.get("question")).get_answer()
-            sources = []
-            for chunk in selected_chunks:
-                sources.append(MinimalSource(**chunk))
+        answerer = Answering(self._model_name)
+
+        nb_processed = 0
+        for result in tqdm(search_results, bar_format='[{elapsed}<{remaining}] {n_fmt}/{total_fmt} | {l_bar}{bar} {rate_fmt}{postfix}', colour='blue'):
+            reponse = answerer.answer_dataset(result, self._chunks_path)
             answer = MinimalAnswer(
-                question_id=question.get("question_id"),
-                question=question.get("question"),
-                retrieved_sources=sources,
+                question_id=result.question_id,
+                question=result.question,
+                retrieved_sources=result.retrieved_sources,
                 answer=reponse
             )
-            self._save_results_and_answers(args.save_directory,
-                                           file_name, answer)
+            self._save_results_and_answers(save_path, answer)
+            nb_processed += 1
+        print(f"Processed {nb_processed} of {len(search_results)} questions")
+        print("Saved student_search_results_and_answer to", save_path)
 
     def evaluate(self, path_result: str, path_answered_questions: str):
         """Evaluate the pertinence of the results found
@@ -247,6 +248,7 @@ class Core:
                 search_results=[],
                 k=k
             ).model_dump_json(indent=2))
+        return save_path
 
     def _init_results_and_answers(self, save_directory, file_name, k):
         """Initialize the file for results and answers
@@ -266,8 +268,9 @@ class Core:
                 search_results=[],
                 k=k
             ).model_dump_json(indent=2))
+        return save_path
 
-    def _save_result(self, save_directory: str, file_name: str,
+    def _save_result(self, save_path: str,
                      result: MinimalSearchResults):
         """Save the result in the file
 
@@ -276,11 +279,6 @@ class Core:
             file_name (str): Save file name
             result (MinimalSearchResults): Result to save
         """
-        if save_directory is None:
-            save_path = self._search_results_path / file_name
-        else:
-            save_path = Path(save_directory) / file_name
-
         with open(save_path, "r") as file:
             raw_data = file.read()
             data = StudentSearchResults.model_validate_json(raw_data)
@@ -288,7 +286,7 @@ class Core:
         with open(save_path, "w") as file:
             file.write(data.model_dump_json(indent=2))
 
-    def _save_results_and_answers(self, save_directory: str, file_name: str,
+    def _save_results_and_answers(self, save_path: str,
                                   result: MinimalAnswer):
         """Save the result and answer in the file
 
@@ -297,10 +295,6 @@ class Core:
             file_name (str): Save file name
             result (MinimalAnswer): Result and answer to save
         """
-        if save_directory is None:
-            save_path = self._search_results_and_answer_path / file_name
-        else:
-            save_path = Path(save_directory) / file_name
         with open(save_path, "r") as file:
             raw_data = file.read()
             data = StudentSearchResultsAndAnswer.model_validate_json(raw_data)
@@ -308,7 +302,7 @@ class Core:
         with open(save_path, "w") as file:
             file.write(data.model_dump_json(indent=2))
 
-    def _save_for_moulinette(self, save_directory: str, file_name: str,
+    def _save_for_moulinette(self, save_path: str,
                              k: int):
         """Get the save and creates a file compatible with the moulinette
 
@@ -318,10 +312,6 @@ class Core:
             k (int): Number of recall
         """
         try:
-            if save_directory is None:
-                save_path = self._search_results_path / file_name
-            else:
-                save_path = Path(save_directory) / file_name
             save_path.parent.mkdir(parents=True, exist_ok=True)
             with open(save_path, "r") as file:
                 raw_data = file.read()
@@ -375,12 +365,29 @@ class Core:
             list: All the questions
         """
         try:
-            with (open(file, "r")as file):
+            with (open(file, "r") as file):
                 data = file.read()
                 data = json.loads(data)
                 return data.get("rag_questions")
         except Exception:
-            raise (ValueError("No questions found"))
+            raise ValueError("No questions found")
+
+    def _get_search_results(self, file_path: Path):
+        """Get all the questions from the file
+
+        Args:
+            file (Path): file path
+
+        Returns:
+            list: All the questions
+        """
+        try:
+            with open(file_path, "r") as file:
+                raw_data = file.read()
+                results = StudentSearchResults.model_validate_json(raw_data)
+                return (results.search_results), (results.k)
+        except Exception:
+            raise ValueError("The search results doesn t exist")
 
 
 def main():

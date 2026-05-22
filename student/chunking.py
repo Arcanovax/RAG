@@ -39,7 +39,7 @@ class Chunking():
         for file_path in self._find_allowed_files_paths(self.allowed_ext):
             all_chunks += self.create_chunks_from_file(file_path)
         self.all_chunks = all_chunks
-        self.save_all_chunks(all_chunks)
+        save_all_chunks(self.chunks_file, all_chunks)
 
 
     def get_all_chunks(self):
@@ -50,14 +50,6 @@ class Chunking():
         for ext in allowed:
             files_paths += (list(self.folder_raw.rglob(f"*{ext}")))
         return files_paths
-
-    def save_all_chunks(self, all_chunks: list):
-        self.chunks_file.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with (open(self.chunks_file, "w")as file):
-                file.write(json.dumps(all_chunks, indent=2))
-        except Exception:
-            raise (ValueError(f"Cannot write in {self.chunks_file}"))
 
     def create_chunks_from_file(self, file_path) -> dict:
         data = file_path.read_text()
@@ -79,3 +71,21 @@ class Chunking():
                 "last_character_index": last_index
             })
         return chunks
+
+
+def save_all_chunks(chunks_file, all_chunks: list):
+    chunks_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with (open(chunks_file, "w")as file):
+            file.write(json.dumps(all_chunks, indent=2))
+    except Exception:
+        raise (ValueError(f"Cannot write in {chunks_file}"))
+
+
+def get_chunks(chunks_file):
+    try:
+        with (open(chunks_file, "r")as file):
+            data = file.read()
+            return json.loads(data)
+    except Exception:
+        raise (ValueError("The dataset is not indexed, use index before"))
