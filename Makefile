@@ -1,4 +1,4 @@
-SRCS_DIR = student
+SRCS_DIR = src
 UV_PY = uv run python3
 MYPY_FLAGS = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 VENV = .venv

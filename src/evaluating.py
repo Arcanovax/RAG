@@ -1,53 +1,23 @@
+"""Evaluation utilities for recall@k."""
+
 import json
 from .utils.model import StudentSearchResults, RagDataset, MinimalSource
 
 class Evaluating:
-    """Evaluate retrieval results against labeled sources."""
-
+    """Compute recall metrics for retrieval results."""
     def __init__(self, path_result, path_answered_questions):
-        """Load inputs and print recall@k scores.
-
-        Args:
-            path_result (str | Path): Path to retrieval results JSON.
-            path_answered_questions (str | Path): Path to gold answers JSON.
-        """
+        """Load inputs and print recall scores."""
         self.results: StudentSearchResults = self.get_result(path_result)
-        self.answered_questions: RagDataset = self.get_answered_questions(
-            path_answered_questions
-        )
-        total_questions = len(self.answered_questions.rag_questions)
-        questions_with_sources = sum(
-            1
-            for question in self.answered_questions.rag_questions
-            if len(question.sources) > 0
-        )
-        students_with_sources = sum(
-            1
-            for question in self.results.search_results
-            if len(question.retrieved_sources) > 0
-        )
-        print(f"Total number of questions: {total_questions}")
-        print(
-            "Total number of questions with sources: "
-            f"{questions_with_sources}"
-        )
-        print(
-            "Total number of questions with students sources: "
-            f"{students_with_sources}"
-        )
+        self.answered_questions: RagDataset = self.get_answered_questions(path_answered_questions)
+        print(f"Total number of questions: {len(self.answered_questions.rag_questions)}")
+        print(f"Total number of questions with sources: {sum(1 for question in self.answered_questions.rag_questions if len(question.sources) > 0)}")
+        print(f"Total number of questions with students sources: {sum(1 for question in self.results.search_results if len(question.retrieved_sources) > 0)}")
         scores = self.evaluate()
         for recal, score in scores.items():
             print(f"{recal}: {score} ({score*100}%)")
 
     def get_result(self, path_result):
-        """Load student search results from disk.
-
-        Args:
-            path_result (str | Path): Path to results JSON.
-
-        Returns:
-            StudentSearchResults: Parsed results.
-        """
+        """Load search results JSON."""
         try:
             with (open(path_result, "r")as file):
                 data = file.read()
@@ -56,14 +26,7 @@ class Evaluating:
             raise (ValueError(f"Cannot read {path_result}"))
 
     def get_answered_questions(self, path_answered_questions):
-        """Load answered questions from disk.
-
-        Args:
-            path_answered_questions (str | Path): Path to answers JSON.
-
-        Returns:
-            RagDataset: Parsed dataset.
-        """
+        """Load labeled questions JSON."""
         try:
             with (open(path_answered_questions, "r")as file):
                 data = file.read()
@@ -72,11 +35,7 @@ class Evaluating:
             raise (ValueError(f"Cannot read {path_answered_questions}"))
 
     def evaluate(self):
-        """Compute recall@k scores.
-
-        Returns:
-            dict[str, float]: Recall scores by k.
-        """
+        """Return recall@k scores for standard k values."""
         max_k = self.results.k
         k_list = [1, 3, 5, 10]
         scores = {}
@@ -90,14 +49,7 @@ class Evaluating:
         return scores
 
     def get_recall_score(self, k):
-        """Compute recall@k for the results.
-
-        Args:
-            k (int): Recall cut-off.
-
-        Returns:
-            float: Recall score.
-        """
+        """Compute recall at k for all questions."""
         score = 0
         results = self.results.search_results
         answers = self.answered_questions.rag_questions
@@ -107,16 +59,7 @@ class Evaluating:
         return score/len(results)
 
     def is_matching(self, result, answer, k):
-        """Check if a retrieved source matches the gold source.
-
-        Args:
-            result (MinimalSearchResults): Student result.
-            answer (AnsweredQuestion): Gold answer entry.
-            k (int): Recall cut-off.
-
-        Returns:
-            bool: True if a match is found.
-        """
+        """Check if result overlaps the gold source at k."""
         if (result.question_id != answer.question_id or
            result.question != answer.question):
             return False
@@ -131,15 +74,7 @@ class Evaluating:
         return False
 
     def is_matching_lines(self, result: MinimalSource, answer: MinimalSource):
-        """Check overlap between source spans.
-
-        Args:
-            result (MinimalSource): Retrieved source span.
-            answer (MinimalSource): Gold source span.
-
-        Returns:
-            bool: True if overlap meets threshold.
-        """
+        """Check line overlap between result and gold source."""
         result_x = result.first_character_index
         result_y = result.last_character_index
         answer_x = answer.first_character_index

@@ -1,3 +1,5 @@
+"""Retrieval logic for BM25 and hybrid search."""
+
 import bm25s
 from .chunking import get_chunks
 from pathlib import Path
@@ -7,18 +9,9 @@ from .utils.query_expander import Query_Expander
 
 
 class Retrieving():
-    """Retrieve relevant chunks using BM25 and optional fusion."""
-
+    """Retrieve relevant chunks for a query."""
     def __init__(self, bm25s_path, chunks_file: Path, k, is_hybrid, is_expand):
-        """Initialize retrieval configuration.
-
-        Args:
-            bm25s_path (Path | str): Path to BM25 index.
-            chunks_file (Path): Path to chunks JSON file.
-            k (int): Number of chunks to return.
-            is_hybrid (bool): Enable hybrid retrieval.
-            is_expand (bool): Enable query expansion.
-        """
+        """Initialize retriever settings and load chunks."""
         self.bm25s_path = bm25s_path
         self.is_hybrid = is_hybrid
         self.is_expand = is_expand
@@ -28,14 +21,7 @@ class Retrieving():
         self.chunks = get_chunks(chunks_file)
 
     def retrieve(self, question: str):
-        """Retrieve the top-k chunks for a question.
-
-        Args:
-            question (str): Input query.
-
-        Returns:
-            list[dict]: Retrieved chunk dictionaries.
-        """
+        """Return top-k chunks for a question."""
         ret_loaded = bm25s.BM25(k1=1.7).load(self.bm25s_path, load_corpus=True)
         query_tokens = bm25s.tokenize(question)
         ranked_lists = []
@@ -47,10 +33,7 @@ class Retrieving():
         if self.is_hybrid:
             client = chromadb.PersistentClient(path="data/processed/chroma_db")
             if not self._is_semantic_valid(client):
-                raise ValueError(
-                    "Cannot use the --hybrid flag on these chunks, "
-                    "change the dataset type"
-                )
+                raise ValueError("Cannot use the --hybrid flag ont these chunks, change the dataset type")
             chroma_chunks = client.get_collection(name="Chunks")
             results = chroma_chunks.query(
                 query_texts=question,
@@ -71,15 +54,7 @@ class Retrieving():
     def _fusion_lists(self,
                       ranked_lists: list[tuple[list[str], float]]
                       ) -> list[str]:
-        """Fuse ranked lists using weighted reciprocal rank.
-
-        Args:
-            ranked_lists (list[tuple[list[str], float]]):
-                Lists of document ids with weights.
-
-        Returns:
-            list[str]: Fused document ids.
-        """
+        """Fuse multiple ranked lists into a single ranking."""
         scores: dict[str, float] = {}
         for doc_list, weight in ranked_lists:
             for rank, doc_id in enumerate(doc_list):
@@ -91,14 +66,7 @@ class Retrieving():
         return fused_ids[:self.k]
 
     def _is_semantic_valid(self, client: chromadb.ClientAPI):
-        """Check if the Chroma collection exists.
-
-        Args:
-            client (chromadb.ClientAPI): Chroma client instance.
-
-        Returns:
-            bool: True if the collection is available.
-        """
+        """Check if semantic collection exists."""
         for collection in client.list_collections():
             if collection.name == "Chunks":
                 return True

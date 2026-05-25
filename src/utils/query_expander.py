@@ -1,30 +1,20 @@
+"""Query expansion utilities using spaCy."""
+
 import json
 from pathlib import Path
 import re
 
 
 class Query_Expander():
-    """Expand queries using lexical and embedding signals."""
-
+    """Expand queries with keywords and related terms."""
     CACHE_PATH = Path("./.cache/expand_query_cache.json")
 
     def __init__(self, nlp):
-        """Initialize the expander.
-
-        Args:
-            nlp: spaCy language model.
-        """
+        """Store the spaCy model."""
         self.nlp = nlp
 
     def expand_query(self, question):
-        """Expand a query with caching.
-
-        Args:
-            question (str): Input question.
-
-        Returns:
-            str: Expanded query.
-        """
+        """Return cached or expanded query text."""
         cache = {}
         if self.CACHE_PATH.exists():
             cache = json.loads(self.CACHE_PATH.read_text())
@@ -40,14 +30,7 @@ class Query_Expander():
         return expanded
 
     def expand(self, question):
-        """Expand a query without caching.
-
-        Args:
-            question (str): Input question.
-
-        Returns:
-            str: Expanded query.
-        """
+        """Expand a query with keywords and related terms."""
         doc = self.nlp(question)
         keywords = self._get_keywords(doc)
         similar_words = self._get_similar_words(doc)
@@ -57,27 +40,13 @@ class Query_Expander():
         return expanded
 
     def _get_keywords(self, doc):
-        """Extract keyword lemmas.
-
-        Args:
-            doc: spaCy doc object.
-
-        Returns:
-            list[str]: Keyword lemmas.
-        """
+        """Extract lemma keywords from a document."""
         keywords = [token.lemma_ for token in doc
                     if not token.is_stop and token.is_alpha]
         return keywords
 
     def _get_similar_words(self, doc):
-        """Find similar words via embeddings.
-
-        Args:
-            doc: spaCy doc object.
-
-        Returns:
-            list[str]: Similar words.
-        """
+        """Collect similar words from word vectors."""
         similar_words = []
         for token in doc:
             if (not token.is_stop and token.is_alpha and token.has_vector
@@ -90,14 +59,7 @@ class Query_Expander():
         return similar_words
 
     def _get_code_keywords(self, doc):
-        """Extract code-like tokens and splits.
-
-        Args:
-            doc: spaCy doc object.
-
-        Returns:
-            list[str]: Code-related keywords.
-        """
+        """Extract code-like tokens and parts."""
         code_keywords = []
         for token in doc:
             if not token.is_stop:

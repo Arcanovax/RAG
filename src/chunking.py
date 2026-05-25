@@ -1,21 +1,15 @@
+"""Chunking utilities for dataset ingestion."""
+
 from pathlib import Path
 import json
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 
 
 class Chunking():
-    """Create and persist document chunks from a folder."""
-
+    """Create chunks from raw documents."""
     def __init__(self, folder_raw: Path, max_chunk_size: int,
                  chunks_file: Path, dataset_type):
-        """Initialize chunking configuration and build chunks.
-
-        Args:
-            folder_raw (Path): Root folder containing source files.
-            max_chunk_size (int): Target chunk size.
-            chunks_file (Path): Output JSON file for chunks.
-            dataset_type (str): Dataset type ("docs", "code", or "all").
-        """
+        """Initialize chunking and write chunk file."""
         self.folder_raw = folder_raw
         self.chunks_file = chunks_file
         overlap = 0.20
@@ -52,36 +46,18 @@ class Chunking():
         save_all_chunks(self.chunks_file, all_chunks)
 
     def get_all_chunks(self):
-        """Return all generated chunks.
-
-        Returns:
-            list: List of chunk dictionaries.
-        """
+        """Return all computed chunks."""
         return self.all_chunks
 
     def _find_allowed_files_paths(self, allowed):
-        """Collect file paths that match allowed extensions.
-
-        Args:
-            allowed (list[str]): Allowed file extensions.
-
-        Returns:
-            list[Path]: Matching file paths.
-        """
+        """Find files matching allowed extensions."""
         files_paths = []
         for ext in allowed:
             files_paths += (list(self.folder_raw.rglob(f"*{ext}")))
         return files_paths
 
     def create_chunks_from_file(self, file_path) -> dict:
-        """Split a file into chunks with metadata.
-
-        Args:
-            file_path (Path): Path to the file to split.
-
-        Returns:
-            list[dict]: Chunk dictionaries for the file.
-        """
+        """Split a file into chunks with metadata."""
         data = file_path.read_text()
         if file_path.suffix == ".md":
             texts = self.markdown_splitter.create_documents([data])
@@ -104,12 +80,7 @@ class Chunking():
 
 
 def save_all_chunks(chunks_file, all_chunks: list):
-    """Persist chunks to disk as JSON.
-
-    Args:
-        chunks_file (Path): Output JSON path.
-        all_chunks (list): Chunk dictionaries to save.
-    """
+    """Persist chunks to disk as JSON."""
     chunks_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         with (open(chunks_file, "w")as file):
@@ -119,14 +90,7 @@ def save_all_chunks(chunks_file, all_chunks: list):
 
 
 def get_chunks(chunks_file):
-    """Load chunks from disk.
-
-    Args:
-        chunks_file (Path): Path to the chunks JSON file.
-
-    Returns:
-        list: Loaded chunk dictionaries.
-    """
+    """Load chunks from disk."""
     try:
         with (open(chunks_file, "r")as file):
             data = file.read()

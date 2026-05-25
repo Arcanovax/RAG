@@ -1,3 +1,5 @@
+"""Index building for lexical and semantic retrieval."""
+
 import bm25s
 import chromadb
 from tqdm import tqdm
@@ -7,16 +9,8 @@ import re
 
 class Indexing:
     """Build and persist retrieval indices."""
-
     def __init__(self, save_path, all_chunks, dataset_type, process_path):
-        """Initialize indexing and persist BM25/Chroma indices.
-
-        Args:
-            save_path (Path | str): BM25 index output path.
-            all_chunks (list): Chunk dictionaries.
-            dataset_type (str): Dataset type ("docs", "code", or "all").
-            process_path (Path | str): Processing directory.
-        """
+        """Initialize and build indices."""
         self.save_path = save_path
         self.all_chunks = all_chunks
         self.dataset_type = dataset_type
@@ -33,25 +27,17 @@ class Indexing:
         print(f"Ingestion complete! Indices saved under {self.process_path}")
 
     def save_for_retriever(self):
-        """Build and save the BM25 index."""
+        """Create and save the BM25 index."""
         corpus = []
         self.chroma_ids = []
         self.chroma_metadatas = []
         self.chroma_documents = []
         for id, chunk in enumerate(self.all_chunks):
-            simple_path = (
-                chunk["file_path"]
-                .replace(".", " ")
-                .replace("_", " ")
-                .replace("/", " ")
-            )
+            simple_path = chunk['file_path'].replace('.', ' ').replace('_', ' ').replace('/', ' ')
             clean_content = chunk['content'].replace('_', ' ')
             clean_content = re.sub(
                 r'([a-z])([A-Z])', r'\1 \2', clean_content)
-            bms25s_txt = (
-                f"{chunk['file_path']} {simple_path*7}\n\n"
-                f"{clean_content}\n\n{chunk['content']}"
-            )
+            bms25s_txt = f"{chunk['file_path']} {simple_path*7}\n\n{clean_content}\n\n{chunk['content']}"
             corpus.append(bms25s_txt)
             self.chroma_documents.append(chunk['content'])
             self.chroma_ids.append(str(id))
@@ -62,7 +48,7 @@ class Indexing:
         retriever.save(self.save_path)
 
     def chroma_save(self):
-        """Persist chunks to a Chroma collection."""
+        """Persist documents to Chroma for semantic search."""
         self.client = chromadb.PersistentClient(path=self.chroma_path)
         chroma_chunks = self.client.get_or_create_collection(name="Chunks")
         chroma_chunks.add(

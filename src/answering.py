@@ -1,3 +1,5 @@
+"""Answer generation utilities using DSPy and VLLM."""
+
 import dspy
 from .utils.model import (
     MinimalSource)
@@ -6,28 +8,20 @@ from typing import List
 
 
 class RAG_sign(dspy.Signature):
-    """DSPy signature for RAG prompting."""
+    """Answer the question using only the provided sources."""
     context: str = dspy.InputField(
         desc="Numbered source chunks, most relevant first"
     )
     question: str = dspy.InputField()
     answer: str = dspy.OutputField(
-        desc=(
-            "answer ONLY. one or two sentences. Mention the original source. "
-            "No markdown, No symbols."
-        )
+        desc="answer ONLY. one or two sentences. Mention the original source. No markdown, No symbols."
     )
 
 
 class Model():
-    """DSPy model wrapper for a local OpenAI-compatible server."""
-
+    """Configure the LLM backend and DSPy predictor."""
     def __init__(self, model: str):
-        """Initialize the LLM and predictor.
-
-        Args:
-            model (str): Model identifier for the LLM server.
-        """
+        """Initialize the LLM client and predictor."""
         self.lm = dspy.LM(
                     model=model,
                     api_base="http://localhost:8000/v1",
@@ -35,9 +29,7 @@ class Model():
                     max_tokens=256,
                     temperature=0.1,
                     frequency_penalty=0.3,
-                    extra_body={
-                        "chat_template_kwargs": {"enable_thinking": False}
-                    },
+                    extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                 )
         dspy.configure(lm=self.lm)
         self.predictor = dspy.Predict(RAG_sign)
@@ -45,26 +37,13 @@ class Model():
 
 
 class Answering():
-    """Generate answers from retrieved chunks."""
-
+    """Generate answers from retrieved context."""
     def __init__(self, model_name: str):
-        """Initialize the answering pipeline.
-
-        Args:
-            model_name (str): Model identifier for the LLM server.
-        """
+        """Initialize the answering pipeline."""
         self.model = Model(model_name)
 
     def answer_dataset(self, result, chunks_file):
-        """Answer a dataset entry using stored chunks.
-
-        Args:
-            result (MinimalSearchResults): Retrieval result entry.
-            chunks_file (Path | str): Path to chunks JSON.
-
-        Returns:
-            str: Generated answer.
-        """
+        """Generate an answer for a dataset item."""
         chunks = get_chunks(chunks_file)
         try:
             retrieved_chunks = self.get_retrieved_chunks(
@@ -82,15 +61,7 @@ class Answering():
             raise ValueError("Answering failed")
 
     def answer_query(self, selected_chunks, query):
-        """Answer a single query using selected chunks.
-
-        Args:
-            selected_chunks (list[dict]): Retrieved chunks.
-            query (str): Input question.
-
-        Returns:
-            str: Generated answer.
-        """
+        """Generate an answer for a single query."""
         try:
             context = self.get_context(selected_chunks)
             result = self.model.predictor(context=context, question=query)
@@ -104,34 +75,17 @@ class Answering():
             raise ValueError("Answering failed")
 
     def get_context(self, chunks):
-        """Format chunks into a single context string.
-
-        Args:
-            chunks (list[dict]): Retrieved chunks.
-
-        Returns:
-            str: Formatted context for the LLM.
-        """
+        """Build a context string from chunks."""
         context_parts = []
         for chunk in chunks:
             content = chunk.get("content", "").strip()
-            context_parts.append(
-                f"\n[[ ## SOURCE {chunk.get('file_path')} ## ]]\n{content}"
-            )
+            context_parts.append(f"\n[[ ## SOURCE {chunk.get("file_path")} ## ]]\n{content}")
         return "\n".join(context_parts)
 
     def get_retrieved_chunks(self,
                              retrieved_sources: List[MinimalSource],
                              chunks):
-        """Match stored chunk metadata to retrieved sources.
-
-        Args:
-            retrieved_sources (list[MinimalSource]): Source spans.
-            chunks (list[dict]): All stored chunks.
-
-        Returns:
-            list[dict]: Retrieved chunk dictionaries.
-        """
+        """Map retrieved sources to full chunk objects."""
         retrieved_chunks = []
         for source in retrieved_sources:
             for chunk in chunks:
