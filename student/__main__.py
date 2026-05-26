@@ -10,7 +10,7 @@ from .utils.model import (StudentSearchResults,
                           StudentSearchResultsAndAnswer,
                           MinimalAnswer)
 from .utils.input_model import (Index_model,
-                                Dataset_model,
+                                Search_dataset_model,
                                 Query_model,
                                 BaseModel,
                                 Answer_dataset_model)
@@ -133,7 +133,7 @@ class Core:
             expand (bool): Enable query expansion.
         """
         args = self._validate_args(
-            Dataset_model,
+            Search_dataset_model,
             questions_path=dataset_path,
             k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
         )

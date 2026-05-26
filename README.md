@@ -62,7 +62,7 @@ We can see that flags drastically improve the results, it is also important to n
 
 ## Design Decisions
 - **BM25-first** for speed and reproducibility; semantic search is optional and only for documentation datasets. Expand query is also optional because it take some time.
-- **Type splitting** to better preserve structure in code and markdown.
+- **Type splitting** to preserve structure in code and markdown.
 - **DSPy + VLLM** to keep the answering safe, modular and replaceable.
 - **Incremental JSON outputs** to support long-running dataset searches.
 
@@ -109,18 +109,21 @@ uv run python -m src answer_dataset --student_search_results_path data/output/se
 
 ### Evaluate recall@k
 ```bash
-python -m student evaluate --path_result data/output/search_results/dataset_docs_public.json --path_answered_questions data/datasets/AnsweredQuestions/dataset_docs_public.json
+uv run python -m src evaluate --path_result data/output/search_results/dataset_docs_public.json --path_answered_questions data/datasets/AnsweredQuestions/dataset_docs_public.json
 ```
 
 ## Example Usage
 - **Index docs-only with hybrid search**:
 	```bash
-	python -m student index --max_chunk_size 2000 --dataset_type docs
-	python -m student search --query "Explain chunk metadata" --k 10 --hybrid true
+	uv run python -m src index --max_chunk_size 1400 --dataset_type docs
+	uv run python -m src search "What HTTP endpoint is used to dynamically load a LoRA
+	adapter in vLLM?" --k 10 --hybrid
 	```
-- **Expanded query retrieval**:
+- **Index code-only with expanded search**:
 	```bash
-	python -m student search --query "What is BM25 used for?" --k 10 --expand true
+	uv run python -m src index 1400 code
+	uv run python -m src search "What activation formats does the
+	fused batched MoE layer return in vLLM?" --k 5 --expand
 	```
 
 ## Resources
@@ -134,7 +137,4 @@ python -m student evaluate --path_result data/output/search_results/dataset_docs
 ### AI Usage
 AI tools were used to:
 - Summarize and cross-check documentation for DSPy, LangChain splitters, and RAG best practices.
-- Draft initial README wording and structure, then refined to match the implementation in this repository.
-- Sanity-check CLI examples against the `student` Fire-based interface.
-
-No AI-generated code was directly inserted into the core pipeline without manual review and alignment to project requirements.
+- Draft initial README wording and structure.

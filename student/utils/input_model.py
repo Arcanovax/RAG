@@ -12,10 +12,10 @@ class Index_model(BaseModel):
     """
     max_chunk_size: int
     dataset_type: Literal["docs", "code", "all"]
-    knowledge: Optional[str]
+    knowledge: Optional[str] = None
 
 
-class Dataset_model(BaseModel):
+class Search_dataset_model(BaseModel):
     """CLI arguments for dataset search.
 
     Attributes:
@@ -27,9 +27,9 @@ class Dataset_model(BaseModel):
     """
     questions_path: str
     k: int
-    save_directory: Optional[str]
-    hybrid: Optional[bool]
-    expand: Optional[bool]
+    save_directory: Optional[str] = None
+    hybrid: Optional[bool] = None
+    expand: Optional[bool] = None
 
 
 class Query_model(BaseModel):
@@ -45,8 +45,8 @@ class Query_model(BaseModel):
     query: str
     k: int
     save_directory: Optional[str]
-    hybrid: Optional[bool]
-    expand: Optional[bool]
+    hybrid: Optional[bool] = None
+    expand: Optional[bool] = None
 
 
 class Answer_dataset_model(BaseModel):
@@ -57,4 +57,4 @@ class Answer_dataset_model(BaseModel):
         save_directory: Output directory for answers.
     """
     student_search_results_path: str
-    save_directory: Optional[str]
+    save_directory: Optional[str] = None
