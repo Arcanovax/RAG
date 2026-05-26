@@ -11,7 +11,7 @@ class Index_model(BaseModel):
     knowledge: Optional[str] = None
 
 
-class Dataset_model(BaseModel):
+class Result_dataset_model(BaseModel):
     """Arguments for dataset search command."""
     questions_path: str
     k: int

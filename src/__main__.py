@@ -12,7 +12,7 @@ from .utils.model import (StudentSearchResults,
                           StudentSearchResultsAndAnswer,
                           MinimalAnswer)
 from .utils.input_model import (Index_model,
-                                Dataset_model,
+                                Result_dataset_model,
                                 Query_model,
                                 BaseModel,
                                 Answer_dataset_model)
@@ -96,7 +96,7 @@ class Core:
                        hybrid=False, expand=False):
         """Retrieve chunks for each question in a dataset."""
         args = self._validate_args(
-            Dataset_model,
+            Result_dataset_model,
             questions_path=dataset_path,
             k=k, save_directory=save_directory, hybrid=hybrid, expand=expand
         )
